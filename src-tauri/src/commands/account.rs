@@ -5,6 +5,7 @@ use crate::pen::session;
 use crate::state::AppState;
 use crate::storage::repo::Store;
 use crate::storage::vault;
+use std::time::{Duration, Instant};
 use tauri::State;
 use uuid::Uuid;
 
@@ -17,7 +18,14 @@ pub fn account_list(state: State<'_, AppState>) -> AppResult<Vec<AccountView>> {
 
 /// 从本机 pen.dev 会话文件导入账号；桌面会话导入后即视为当前账号。
 #[tauri::command]
-pub fn account_import(state: State<'_, AppState>, source: AccountSource) -> AppResult<AccountView> {
+pub async fn account_import(app: tauri::AppHandle, source: AccountSource) -> AppResult<AccountView> {
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || import_blocking(app.state::<AppState>(), source))
+        .await
+        .map_err(|err| AppError::new("task", format!("导入任务失败：{err}")))?
+}
+
+fn import_blocking(state: State<'_, AppState>, source: AccountSource) -> AppResult<AccountView> {
     let path = state.sessions.for_source(source).to_path_buf();
     let snapshot = session::read(&path)?;
 
@@ -66,6 +74,58 @@ pub fn account_import(state: State<'_, AppState>, source: AccountSource) -> AppR
         true,
         session_state,
     ))
+}
+
+/// 轮询桌面会话文件，直到出现一个不同于 `exclude_email` 的邮箱且文件写入已稳定，
+/// 再按导入流程保存它。超时未检测到新登录时返回 `Ok(None)`，不是错误。
+/// 用于“登录一个新账号”里退出旧账号、重新登录后的自动捕获。
+#[tauri::command]
+pub async fn account_watch_new(
+    app: tauri::AppHandle,
+    exclude_email: String,
+    timeout_ms: u64,
+) -> AppResult<Option<AccountView>> {
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || {
+        watch_new_blocking(app.state::<AppState>(), exclude_email, timeout_ms.min(180_000))
+    })
+    .await
+    .map_err(|err| AppError::new("task", format!("监听任务失败：{err}")))?
+}
+
+fn watch_new_blocking(
+    state: State<'_, AppState>,
+    exclude_email: String,
+    timeout_ms: u64,
+) -> AppResult<Option<AccountView>> {
+    let path = state.sessions.for_source(AccountSource::Desktop).to_path_buf();
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    let generation = state.next_watch_generation();
+    let exclude = exclude_email.trim().to_lowercase();
+
+    loop {
+        if !state.is_watch_current(generation) || Instant::now() >= deadline {
+            return Ok(None);
+        }
+        if let Some(email) = session::peek_email(&path) {
+            if email.to_lowercase() != exclude
+                && session::wait_for_stable(&path, Duration::from_millis(600), Duration::from_secs(3))
+                && state.is_watch_current(generation)
+            {
+                let snapshot = session::read(&path)?;
+                if snapshot.email.eq_ignore_ascii_case(&exclude) {
+                    continue;
+                }
+                return import_blocking(state, AccountSource::Desktop).map(Some);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
+#[tauri::command]
+pub fn account_cancel_watch(state: State<'_, AppState>) {
+    state.cancel_watch();
 }
 
 /// 先去重：邮箱相同，或保存的 token 完全相同（说明是同一次登录）。

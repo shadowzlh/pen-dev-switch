@@ -4,6 +4,7 @@ use crate::pen::paths::SessionPaths;
 use crate::quota::QuotaView;
 use crate::storage::repo::Store;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 /// 额度缓存有效期：避免每次刷新都打三次请求。
@@ -13,6 +14,7 @@ pub struct AppState {
     store: Mutex<Store>,
     pub sessions: SessionPaths,
     quota: Mutex<HashMap<String, (i64, QuotaView)>>,
+    watch_generation: AtomicU64,
 }
 
 impl AppState {
@@ -21,7 +23,20 @@ impl AppState {
             store: Mutex::new(store),
             sessions,
             quota: Mutex::new(HashMap::new()),
+            watch_generation: AtomicU64::new(0),
         }
+    }
+
+    pub fn next_watch_generation(&self) -> u64 {
+        self.watch_generation.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    pub fn is_watch_current(&self, generation: u64) -> bool {
+        self.watch_generation.load(Ordering::SeqCst) == generation
+    }
+
+    pub fn cancel_watch(&self) {
+        self.watch_generation.fetch_add(1, Ordering::SeqCst);
     }
 
     pub fn cached_quota(&self, id: &str) -> Option<QuotaView> {

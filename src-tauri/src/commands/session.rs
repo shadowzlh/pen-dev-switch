@@ -133,7 +133,14 @@ pub fn build_views(store: &Store, states: &HashMap<String, SessionState>) -> Vec
 /// 用服务端 `/auth/session-info` 复核所有已保存的会话；
 /// 200 记为已验证，401/403 标记为已被吊销，网络异常则保持原状态。
 #[tauri::command]
-pub fn session_verify(state: State<'_, AppState>) -> AppResult<Vec<AccountView>> {
+pub async fn session_verify(app: tauri::AppHandle) -> AppResult<Vec<AccountView>> {
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || verify_sessions_blocking(app.state::<AppState>()))
+        .await
+        .map_err(|err| AppError::new("task", format!("会话校验任务失败：{err}")))?
+}
+
+fn verify_sessions_blocking(state: State<'_, AppState>) -> AppResult<Vec<AccountView>> {
     let (device, targets) = {
         let store = state.store()?;
         let device = crate::storage::device::device_id(&store.dir);
@@ -226,7 +233,21 @@ pub fn session_current(state: State<'_, AppState>) -> AppResult<Option<AccountVi
 
 /// 真正写入 pen.dev 会话文件：退出 → 备份 → 原子写 → 校验 → 重启，失败回滚。
 #[tauri::command]
-pub fn session_switch(
+pub async fn session_switch(
+    app: tauri::AppHandle,
+    id: String,
+    restart_pen: bool,
+    dry_run: Option<bool>,
+) -> AppResult<SwitchReport> {
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || {
+        switch_blocking(app.state::<AppState>(), id, restart_pen, dry_run)
+    })
+    .await
+    .map_err(|err| AppError::new("task", format!("切换任务失败：{err}")))?
+}
+
+fn switch_blocking(
     state: State<'_, AppState>,
     id: String,
     restart_pen: bool,

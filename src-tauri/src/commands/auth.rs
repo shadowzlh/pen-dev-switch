@@ -8,7 +8,13 @@ use tauri::State;
 
 /// 发送邮箱验证码；不需要已有会话。
 #[tauri::command]
-pub fn auth_request_code(email: String) -> AppResult<()> {
+pub async fn auth_request_code(email: String) -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(move || request_code_blocking(email))
+        .await
+        .map_err(|err| AppError::new("task", format!("验证码请求失败：{err}")))?
+}
+
+fn request_code_blocking(email: String) -> AppResult<()> {
     let email = email.trim();
     if email.is_empty() || !email.contains('@') {
         return Err(AppError::invalid("请输入有效的邮箱地址"));
@@ -19,11 +25,18 @@ pub fn auth_request_code(email: String) -> AppResult<()> {
 
 /// 验证码登录：拿到会话后只保存到本机，不立刻改写 pen.dev 的会话文件。
 #[tauri::command]
-pub fn auth_login(
-    state: State<'_, AppState>,
+pub async fn auth_login(
+    app: tauri::AppHandle,
     email: String,
     code: String,
 ) -> AppResult<AccountView> {
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || login_blocking(app.state::<AppState>(), email, code))
+        .await
+        .map_err(|err| AppError::new("task", format!("验证码登录任务失败：{err}")))?
+}
+
+fn login_blocking(state: State<'_, AppState>, email: String, code: String) -> AppResult<AccountView> {
     let email = email.trim().to_string();
     let code = code.trim().to_string();
     if code.is_empty() {
@@ -50,7 +63,10 @@ pub fn auth_login(
         .unwrap_or(email);
 
     let mut store = state.store()?;
+    let original_current = store.data.current.clone();
     let id = upsert_account(&mut store, &resolved_email, &token, AccountSource::Desktop)?;
+    // 验证码登录仅保存备用账号，不改写桌面会话，也不改变当前账号。
+    store.data.current = original_current;
 
     vault::save_session(
         &id,

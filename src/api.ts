@@ -22,6 +22,20 @@ export interface Account {
   isCurrent: boolean;
 }
 
+export interface UpdateInfo {
+  currentVersion: string;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  releaseUrl: string | null;
+}
+
+export async function checkUpdates(): Promise<UpdateInfo> {
+  if (!isDesktop) {
+    throw new Error('浏览器演示模式无法检查更新，请在桌面应用中使用');
+  }
+  return call<UpdateInfo>('check_updates');
+}
+
 export interface AppStatus {
   penRunning: boolean;
   penExePath: string | null;
@@ -149,6 +163,22 @@ export async function loginWithCode(email: string, code: string): Promise<Accoun
   return call<Account>('auth_login', { email, code });
 }
 
+/**
+ * 轮询桌面会话文件，直到出现一个不同于 `excludeEmail` 的新登录并保存。
+ * 超时（默认 2 分钟）未检测到新登录时返回 null，不算错误。
+ */
+export async function watchNewAccount(
+  excludeEmail: string,
+  timeoutMs = 120_000,
+): Promise<Account | null> {
+  if (!isDesktop) throw new Error('浏览器演示模式不支持监听本机会话');
+  return call<Account | null>('account_watch_new', { excludeEmail, timeoutMs });
+}
+
+export async function cancelWatch(): Promise<void> {
+  if (isDesktop) await call<void>('account_cancel_watch');
+}
+
 export async function setAlias(id: string, alias: string): Promise<Account> {
   if (!isDesktop) {
     const account = demo.accounts.find((a) => a.id === id);
@@ -214,7 +244,7 @@ export async function appStatus(): Promise<AppStatus> {
       penExePath: null,
       sessionPath: null,
       liveEmail: null,
-      backendVersion: 'demo',
+      backendVersion: '0.1.0',
     };
   }
   return call<AppStatus>('app_status');

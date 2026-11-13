@@ -46,6 +46,8 @@ pub fn run() {
             commands::auth::auth_request_code,
             commands::auth::auth_login,
             commands::account::account_import,
+            commands::account::account_watch_new,
+            commands::account::account_cancel_watch,
             commands::account::account_set_alias,
             commands::account::account_remove,
             commands::session::session_current,
@@ -54,6 +56,7 @@ pub fn run() {
             commands::system::app_status,
             commands::system::quota_get,
             commands::system::export_diagnostics,
+            commands::update::check_updates,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

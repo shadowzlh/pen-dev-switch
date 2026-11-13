@@ -60,6 +60,14 @@ pub fn read(path: &Path) -> AppResult<SessionSnapshot> {
     })
 }
 
+/// 只读邮箱，不要求 token 存在；用于监听新登录时先判断邮箱是否已变化。
+pub fn peek_email(path: &Path) -> Option<String> {
+    let raw = fs::read_to_string(path).ok()?;
+    let parsed: RawSession = serde_json::from_str(&raw).ok()?;
+    let email = parsed.email.trim().to_string();
+    (!email.is_empty() && email.contains('@')).then_some(email)
+}
+
 /// 读取原始文件内容，用于切换前备份；文件不存在时返回 None。
 pub fn read_raw(path: &Path) -> AppResult<Option<String>> {
     match fs::read_to_string(path) {

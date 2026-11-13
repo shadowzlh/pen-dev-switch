@@ -1,4 +1,4 @@
-use crate::domain::error::AppResult;
+use crate::domain::error::{AppError, AppResult};
 use crate::domain::model::AppStatus;
 use crate::pen::{process, session};
 use crate::quota::{Outcome, QuotaView};
@@ -26,7 +26,14 @@ pub fn app_status(state: State<'_, AppState>) -> AppResult<AppStatus> {
 
 /// 拉取账号额度：`/usage/summary` + `/public/upgrade-options`，带 5 分钟缓存。
 #[tauri::command]
-pub fn quota_get(state: State<'_, AppState>, id: String) -> AppResult<QuotaView> {
+pub async fn quota_get(app: tauri::AppHandle, id: String) -> AppResult<QuotaView> {
+    use tauri::Manager;
+    tauri::async_runtime::spawn_blocking(move || quota_get_blocking(app.state::<AppState>(), id))
+        .await
+        .map_err(|err| AppError::new("task", format!("额度获取任务失败：{err}")))?
+}
+
+fn quota_get_blocking(state: State<'_, AppState>, id: String) -> AppResult<QuotaView> {
     if let Some(cached) = state.cached_quota(&id) {
         return Ok(cached);
     }
