@@ -75,6 +75,11 @@ pnpm tauri build --target universal-apple-darwin
 - [ ] 导出诊断到 `~/Downloads`
 - [ ] 单实例：重复打开只保留一个窗口
 
+## CI runner 说明
+
+macOS 14 镜像已于 2026-11-02 停止服务，`.github/workflows/build.yml` 使用 `macos-15`（arm64）。
+可用的 macOS 标签：`macos-15` / `macos-26`（arm64）、`macos-15-intel` / `macos-26-intel`（x64）。
+
 ## 已知风险
 
 - AppleScript 退出依赖应用名精确为 `Pen`；若安装名不同，需改成 bundle id。

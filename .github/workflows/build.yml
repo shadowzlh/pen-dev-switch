@@ -12,7 +12,7 @@ jobs:
         include:
           - os: windows-latest
             args: "--bundles nsis"
-          - os: macos-14
+          - os: macos-15
             args: "--target universal-apple-darwin"
     runs-on: ${{ matrix.os }}
 
@@ -31,22 +31,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Add macOS targets
-        if: matrix.os == 'macos-14'
+        if: matrix.os == 'macos-15'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # 需要签名/公证时，在这里或仓库 Secrets 中补充 APPLE_* 变量；
+      # 未配置时产出未签名包，本地可运行但会被 Gatekeeper 拦截。
       - name: Build
         run: pnpm tauri build ${{ matrix.args }}
-        env:
-          # 未配置签名时产出未签名包；发布前需补充 Apple 证书与公证变量。
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
