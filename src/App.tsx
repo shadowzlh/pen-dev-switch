@@ -31,6 +31,9 @@ type Method = 'current' | 'cli' | 'login';
 type LoginMode = 'watch' | 'code';
 
 const WATCH_TIMEOUT_MS = 180_000;
+const UPDATE_SKIP_KEY = 'pen-switch.update.skipped';
+const UPDATE_CHECKED_KEY = 'pen-switch.update.checkedAt';
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
@@ -132,6 +135,9 @@ function App() {
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = useState('');
+  const [skippedVersion, setSkippedVersion] = useState<string | null>(() =>
+    localStorage.getItem(UPDATE_SKIP_KEY),
+  );
   const [menu, setMenu] = useState('');
   const [sync, setSync] = useState('尚未同步');
   const [loading, setLoading] = useState(true);
@@ -190,9 +196,34 @@ function App() {
     }
   }, [loadQuotas]);
 
+  const runUpdateCheck = useCallback(async (manual: boolean) => {
+    if (manual) {
+      setCheckingUpdates(true);
+      setUpdateError('');
+    }
+    try {
+      const info = await checkUpdates();
+      setUpdateInfo(info);
+      if (manual) setSkippedVersion(null);
+      localStorage.setItem(UPDATE_CHECKED_KEY, String(Date.now()));
+    } catch (err) {
+      // 启动时的静默检查不打扰用户，只有手动检查才显示错误。
+      if (manual) setUpdateError(messageOf(err));
+    } finally {
+      if (manual) setCheckingUpdates(false);
+    }
+  }, []);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const last = Number(localStorage.getItem(UPDATE_CHECKED_KEY) ?? 0);
+    if (Date.now() - last < UPDATE_CHECK_INTERVAL_MS) return;
+    const timer = setTimeout(() => void runUpdateCheck(false), 1500);
+    return () => clearTimeout(timer);
+  }, [runUpdateCheck]);
 
   useEffect(() => {
     if (!toast) return;
@@ -434,16 +465,27 @@ function App() {
 
   async function handleCheckUpdates() {
     if (checkingUpdates) return;
-    setCheckingUpdates(true);
-    setUpdateError('');
     setUpdateInfo(null);
-    try {
-      setUpdateInfo(await checkUpdates());
-    } catch (err) {
-      setUpdateError(messageOf(err));
-    } finally {
-      setCheckingUpdates(false);
+    await runUpdateCheck(true);
+  }
+
+  async function openRelease() {
+    const url = updateInfo?.releaseUrl;
+    if (!url) {
+      setToast('该版本没有发布页链接');
+      return;
     }
+    try {
+      await openUrl(url);
+    } catch (err) {
+      setToast(messageOf(err));
+    }
+  }
+
+  function skipUpdate() {
+    if (!updateInfo?.latestVersion) return;
+    localStorage.setItem(UPDATE_SKIP_KEY, updateInfo.latestVersion);
+    setSkippedVersion(updateInfo.latestVersion);
   }
 
   async function handleExport() {
@@ -505,18 +547,14 @@ function App() {
             <RefreshCw size={15} className={checkingUpdates ? 'spinning' : undefined} aria-hidden="true" />
             <span>{checkingUpdates ? '正在检查…' : '检查更新'}</span>
           </button>
-          {updateInfo && (
+          {updateInfo?.updateAvailable && updateInfo.latestVersion && (
             <div className="update-feedback" role="status">
-              {updateInfo.updateAvailable ? (
-                <>
-                  <span>发现新版本 v{updateInfo.latestVersion}</span>
-                  {updateInfo.releaseUrl && (
-                    <button type="button" onClick={() => void openUrl(updateInfo.releaseUrl!).catch((err: unknown) => setUpdateError(messageOf(err)))}>
-                      查看发布页 ↗
-                    </button>
-                  )}
-                </>
-              ) : updateInfo.latestVersion ? '已是最新版本' : '暂无正式版本发布'}
+              <span>发现新版本 v{updateInfo.latestVersion}</span>
+              {updateInfo.releaseUrl && (
+                <button type="button" onClick={() => void openRelease()}>
+                  查看发布页 ↗
+                </button>
+              )}
             </div>
           )}
           {updateError && <div className="update-feedback update-error" role="alert">{updateError}</div>}
@@ -550,6 +588,23 @@ function App() {
             </button>
           </div>
         )}
+
+        {updateInfo?.updateAvailable &&
+          updateInfo.latestVersion &&
+          updateInfo.latestVersion !== skippedVersion && (
+            <div className="mock-note">
+              UPDATE{' '}
+              <span>
+                发现新版本 v{updateInfo.latestVersion}（当前 v{updateInfo.currentVersion}）
+              </span>
+              <button className="primary" onClick={() => void openRelease()}>
+                查看更新
+              </button>
+              <button className="icon" onClick={skipUpdate} title="跳过此版本">
+                跳过
+              </button>
+            </div>
+          )}
 
         <section className="current">
           <span className="dot" />
