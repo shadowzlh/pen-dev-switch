@@ -6,6 +6,7 @@ const API_BASE: &str = "https://api.pencil.dev";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // slug / profileUrl / status 保留给后续“完善资料”流程
 pub struct LoginPayload {
     #[serde(default)]
     pub token: Option<String>,

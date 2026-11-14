@@ -33,7 +33,7 @@ pub fn run() {
             logging::init(&data_dir);
             logging::info(&format!(
                 "app started version={} os={} arch={}",
-                env!("CARGO_PKG_VERSION"),
+                env!("APP_VERSION"),
                 std::env::consts::OS,
                 std::env::consts::ARCH
             ));

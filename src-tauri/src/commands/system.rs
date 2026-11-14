@@ -20,7 +20,7 @@ pub fn app_status(state: State<'_, AppState>) -> AppResult<AppStatus> {
         pen_exe_path: process::pen_exe_path().map(|path| path.display().to_string()),
         session_path: Some(state.sessions.desktop.display().to_string()),
         live_email,
-        backend_version: env!("CARGO_PKG_VERSION").to_string(),
+        backend_version: env!("APP_VERSION").to_string(),
     })
 }
 
@@ -84,7 +84,7 @@ pub fn export_diagnostics(state: State<'_, AppState>) -> AppResult<String> {
     let mut out = String::new();
     let _ = writeln!(out, "pen-dev-switch diagnostics");
     let _ = writeln!(out, "generated_at_epoch: {stamp}");
-    let _ = writeln!(out, "app_version: {}", env!("CARGO_PKG_VERSION"));
+    let _ = writeln!(out, "app_version: {}", env!("APP_VERSION"));
     let _ = writeln!(
         out,
         "os: {} / {}",

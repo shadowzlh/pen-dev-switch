@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check version consistency
+        run: node scripts/check-version.mjs "${GITHUB_REF_NAME}"
+
       # 需要签名/公证时，在这里或仓库 Secrets 中补充 APPLE_* 变量；
       # 未配置时产出未签名包，本地可运行但会被 Gatekeeper 拦截。
       - name: Build

@@ -29,7 +29,7 @@ pub async fn check_updates() -> AppResult<UpdateInfo> {
 }
 
 fn check_updates_blocking() -> AppResult<UpdateInfo> {
-    let current = env!("CARGO_PKG_VERSION").to_string();
+    let current = env!("APP_VERSION").to_string();
     let agent = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(5))
         .timeout_read(Duration::from_secs(8))
