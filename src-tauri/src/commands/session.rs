@@ -55,7 +55,9 @@ pub fn sync_session_state(
             account.last_verified_at.is_some(),
         );
 
-        if state == SessionState::Ok {
+        // 只有磁盘会话确实属于这个账号时，才允许把磁盘 token 回写到该账号。
+        // 否则会把「当前登录账号」的 token 覆盖到其他账号上（曾导致凭据串号）。
+        if state == SessionState::Ok && should_resync(live_email, &account.email) {
             let stored = vault::load_session(&account.id)?;
             let token_changed = match (&stored, &live) {
                 (Some(stored), Some(snapshot)) => stored.token != snapshot.token,
@@ -73,7 +75,6 @@ pub fn sync_session_state(
                     )?;
                 }
             }
-
         }
 
         states.insert(account.id.clone(), state);
@@ -83,6 +84,13 @@ pub fn sync_session_state(
         store.save()?;
     }
     Ok(states)
+}
+
+/// 仅当磁盘会话邮箱与账号邮箱一致时才回写 token。
+fn should_resync(live_email: Option<&str>, account_email: &str) -> bool {
+    live_email
+        .map(|email| email.eq_ignore_ascii_case(account_email))
+        .unwrap_or(false)
 }
 
 /// 会话状态判定：服务端已吊销优先，其次看能否与当前磁盘会话对上。
@@ -176,7 +184,7 @@ fn verify_sessions_blocking(state: State<'_, AppState>) -> AppResult<Vec<Account
             continue;
         };
         match verdict {
-            crate::verify::Verdict::Valid => {
+            crate::verify::Verdict::Valid(_) => {
                 valid += 1;
                 account.revoked = false;
                 account.last_verified_at = Some(now);
@@ -271,17 +279,43 @@ fn switch_blocking(
         (account.email, stored)
     };
 
-    let email = if stored.email.is_empty() {
-        stored_email
+    let mut email = if stored.email.is_empty() {
+        stored_email.clone()
     } else {
         stored.email.clone()
     };
-    let contents = session::build_session_file(
-        &email,
-        &stored.token,
-        stored.workspace.as_ref(),
-        now_ms(),
-    )?;
+
+    // 切换前向服务端确认 token 的归属；跨账号的 token 直接拒绝，避免写错账号。
+    let device = {
+        let store = state.store()?;
+        crate::storage::device::device_id(&store.dir)
+    };
+    match crate::verify::verify(&stored.token, &device) {
+        crate::verify::Verdict::Valid(Some(server_email)) => {
+            if !server_email.eq_ignore_ascii_case(&stored_email) {
+                return Err(AppError::new(
+                    "session_mismatch",
+                    format!("保存的会话属于 {server_email}，请重新导入该账号"),
+                ));
+            }
+            email = server_email;
+        }
+        crate::verify::Verdict::Valid(None) => {}
+        crate::verify::Verdict::Revoked => {
+            return Err(AppError::new(
+                "session_revoked",
+                "该账号的会话已失效，请重新导入",
+            ));
+        }
+        crate::verify::Verdict::Unreachable => {}
+    }
+    // 旧账号可能没有记录工作区，切过去时补一次，避免 pen.dev 打不开工作区。
+    let workspace = stored
+        .workspace
+        .clone()
+        .or_else(|| crate::auth::personal_workspace(&stored.token));
+    let contents =
+        session::build_session_file(&email, &stored.token, workspace.as_ref(), now_ms())?;
 
     let target = if dry_run {
         std::env::temp_dir().join("pen-switch-dryrun-session.json")
@@ -368,8 +402,21 @@ fn switch_blocking(
         if let Some(account) = store.data.accounts.iter_mut().find(|item| item.id == id) {
             account.last_verified_at = Some(now_ms());
         }
-        store.data.current = Some(id);
+        store.data.current = Some(id.clone());
         store.save()?;
+    }
+
+    if stored.workspace.is_none() {
+        if let Some(workspace) = &workspace {
+            let _ = vault::save_session(
+                &id,
+                &StoredSession {
+                    email: email.clone(),
+                    token: stored.token.clone(),
+                    workspace: Some(workspace.clone()),
+                },
+            );
+        }
     }
 
     crate::logging::info(&format!("session switched to {email}"));
@@ -400,6 +447,88 @@ fn rollback(backup_key: Option<&str>, target: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sync_does_not_overwrite_other_account_tokens() {
+        use crate::domain::model::{AccountRecord, AccountSource};
+        use crate::pen::paths::SessionPaths;
+
+        let dir = std::env::temp_dir().join(format!(
+            "pen-switch-sync-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let mut store = crate::storage::repo::Store::load(dir.clone()).unwrap();
+        for (id, email) in [("acc-a", "a@example.com"), ("acc-b", "b@example.com")] {
+            store.data.accounts.push(AccountRecord {
+                id: id.to_string(),
+                email: email.to_string(),
+                alias: String::new(),
+                source: AccountSource::Desktop,
+                added_at: 1,
+                last_seen_at: 1,
+                last_verified_at: Some(1),
+                revoked: false,
+            });
+        }
+        store.data.current = Some("acc-b".to_string());
+        store.save().unwrap();
+
+        vault::save_session(
+            "acc-a",
+            &StoredSession {
+                email: "a@example.com".to_string(),
+                token: "token-a".to_string(),
+                workspace: None,
+            },
+        )
+        .unwrap();
+        vault::save_session(
+            "acc-b",
+            &StoredSession {
+                email: "b@example.com".to_string(),
+                token: "token-b".to_string(),
+                workspace: None,
+            },
+        )
+        .unwrap();
+
+        let desktop = dir.join("session-desktop.json");
+        std::fs::write(
+            &desktop,
+            r#"{"email":"b@example.com","token":"token-b-live"}"#,
+        )
+        .unwrap();
+        let paths = SessionPaths {
+            desktop,
+            cli: dir.join("session-cli.json"),
+        };
+
+        sync_session_state(&mut store, &paths).unwrap();
+
+        assert_eq!(
+            vault::load_session("acc-a").unwrap().unwrap().token,
+            "token-a",
+            "非当前账号的 token 不应被覆盖"
+        );
+        assert_eq!(
+            vault::load_session("acc-b").unwrap().unwrap().token,
+            "token-b-live",
+            "当前账号应同步磁盘上的新 token"
+        );
+
+        let _ = vault::delete_token("acc-a");
+        let _ = vault::delete_token("acc-b");
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn resync_requires_matching_live_email() {
+        assert!(should_resync(Some("a@example.com"), "A@example.com"));
+        assert!(!should_resync(Some("other@example.com"), "a@example.com"));
+        assert!(!should_resync(None, "a@example.com"));
+    }
 
     #[test]
     fn classifies_session_states() {
@@ -477,5 +606,31 @@ mod compare {
         println!("token_equal={}", sa.token == sb.token);
         let same: usize = sa.token.chars().zip(sb.token.chars()).take_while(|(x, y)| x == y).count();
         println!("common_prefix_len={}", same);
+    }
+}
+#[cfg(test)]
+mod backup_dump {
+    use crate::storage::vault;
+
+    #[test]
+    #[ignore = "读取备份凭据内容，仅打印摘要"]
+    fn dump_backup_summaries() {
+        for key in std::env::var("PEN_BACKUP_KEYS").unwrap_or_default().split(',') {
+            let key = key.trim();
+            if key.is_empty() { continue; }
+            match vault::restore_backup_credential(key) {
+                Ok(Some(raw)) => {
+                    let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap_or_default();
+                    println!(
+                        "{key}: email={:?} token_len={} ws={:?}",
+                        parsed.get("email").and_then(|v| v.as_str()),
+                        parsed.get("token").and_then(|v| v.as_str()).map(str::len).unwrap_or(0),
+                        parsed.get("currentWorkspace").map(|v| v.to_string().chars().take(60).collect::<String>())
+                    );
+                }
+                Ok(None) => println!("{key}: missing"),
+                Err(err) => println!("{key}: error {err}"),
+            }
+        }
     }
 }

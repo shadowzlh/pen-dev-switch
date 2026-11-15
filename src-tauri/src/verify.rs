@@ -6,8 +6,8 @@ const API_BASE: &str = "https://api.pencil.dev";
 
 #[derive(Debug)]
 pub enum Verdict {
-    /// 服务端确认 token 有效。
-    Valid,
+    /// 服务端确认 token 有效，并返回它真正归属的邮箱。
+    Valid(Option<String>),
     /// 401/403：会话已被吊销或过期。
     Revoked,
     /// 网络不可达或响应异常，无法下结论。
@@ -31,8 +31,18 @@ pub fn verify(token: &str, device_id: &str) -> Verdict {
     }
 
     match request.call() {
-        // 200 即视为有效；正文内容不参与判定。
-        Ok(_) => Verdict::Valid,
+        Ok(response) => {
+            let email = response
+                .into_json::<serde_json::Value>()
+                .ok()
+                .and_then(|value| {
+                    value
+                        .get("email")
+                        .and_then(|item| item.as_str())
+                        .map(str::to_string)
+                });
+            Verdict::Valid(email)
+        }
         Err(ureq::Error::Status(401, _)) | Err(ureq::Error::Status(403, _)) => Verdict::Revoked,
         Err(_) => Verdict::Unreachable,
     }

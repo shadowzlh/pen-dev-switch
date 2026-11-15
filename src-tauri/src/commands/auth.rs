@@ -68,12 +68,13 @@ fn login_blocking(state: State<'_, AppState>, email: String, code: String) -> Ap
     // 验证码登录仅保存备用账号，不改写桌面会话，也不改变当前账号。
     store.data.current = original_current;
 
+    let workspace = crate::auth::personal_workspace(&token);
     vault::save_session(
         &id,
         &StoredSession {
             email: resolved_email.clone(),
             token,
-            workspace: None,
+            workspace,
         },
     )?;
 

@@ -1,3 +1,4 @@
+use crate::pen::session::Workspace;
 use serde::Deserialize;
 use std::time::Duration;
 
@@ -67,6 +68,47 @@ fn post(path: &str, body: &serde_json::Value) -> Result<serde_json::Value, Strin
     response.into_json().map_err(|err| err.to_string())
 }
 
+#[derive(Debug, Deserialize)]
+struct WorkspacesResponse {
+    #[serde(default)]
+    organizations: Vec<Organization>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Organization {
+    id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    is_personal: bool,
+    #[serde(default)]
+    owner_slug: Option<String>,
+}
+
+/// 取账号的个人工作区，用于补齐会话文件里的 `currentWorkspace`。
+/// 缺少这个字段时 pen.dev 可能无法恢复工作区。
+pub fn personal_workspace(token: &str) -> Option<Workspace> {
+    let response = agent()
+        .get(&format!("{API_BASE}/user/workspaces"))
+        .set("Authorization", &format!("Bearer {token}"))
+        .set("Accept", "application/json")
+        .call()
+        .ok()?;
+    let parsed: WorkspacesResponse = response.into_json().ok()?;
+    let org = parsed
+        .organizations
+        .iter()
+        .find(|org| org.is_personal)
+        .or_else(|| parsed.organizations.first())?;
+
+    Some(Workspace {
+        organization_id: Some(org.id.clone()),
+        slug: org.owner_slug.clone(),
+        label: Some(format!("{} workspace", org.name)),
+    })
+}
+
 fn client_host() -> &'static str {
     match std::env::consts::OS {
         "windows" => "win32",
@@ -99,6 +141,21 @@ pub fn login_with_code(email: &str, code: &str, device_id: &str) -> Result<Login
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "需要真实 token：设置 PEN_WORKSPACE_TOKEN"]
+    fn resolves_personal_workspace() {
+        let Ok(token) = std::env::var("PEN_WORKSPACE_TOKEN") else {
+            eprintln!("skip: 未设置 PEN_WORKSPACE_TOKEN");
+            return;
+        };
+        let workspace = personal_workspace(&token).expect("应能取到个人工作区");
+        println!(
+            "org={:?} slug={:?} label={:?}",
+            workspace.organization_id, workspace.slug, workspace.label
+        );
+        assert!(workspace.organization_id.is_some());
+    }
 
     #[test]
     fn parses_login_payload() {
