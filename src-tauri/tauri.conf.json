@@ -15,6 +15,8 @@
         "title": "Pen Switch — 账号管理",
         "width": 1440,
         "height": 900,
+        "visible": true,
+        "decorations": false,
         "minWidth": 900,
         "minHeight": 600
       }

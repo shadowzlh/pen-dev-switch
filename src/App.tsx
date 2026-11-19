@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowRight, Copy, Download, EllipsisVertical, Info, LockKeyhole, LogIn, PanelLeft, PenTool, Play, RefreshCw, ScanLine, Terminal, Users, X } from 'lucide-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { ArrowRight, Copy, Download, EllipsisVertical, Info, LockKeyhole, LogIn, Minus, PanelLeft, PenTool, Play, RefreshCw, ScanLine, Settings as SettingsIcon, Square, Terminal, Users, X } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import {
   appStatus,
@@ -10,6 +11,7 @@ import {
   exportDiagnostics,
   getQuota,
   importAccount,
+  isDesktop,
   loginWithCode,
   requestLoginCode,
   listAccounts,
@@ -25,10 +27,13 @@ import {
   type UpdateInfo,
 } from './api';
 import './App.css';
+import './Settings.css';
+import { localeFromStorage, translate, type Locale, type Translate, type TranslationKey } from './i18n';
 
-type Filter = '全部' | 'desktop' | 'cli';
+type Filter = 'all' | 'desktop' | 'cli';
 type Method = 'current' | 'cli' | 'login';
 type LoginMode = 'watch' | 'code';
+type Tab = 'accounts' | 'settings';
 
 const WATCH_TIMEOUT_MS = 180_000;
 const UPDATE_SKIP_KEY = 'pen-switch.update.skipped';
@@ -37,27 +42,116 @@ const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
-const METHODS: { id: Method; title: string; desc: string }[] = [
-  { id: 'current', title: '导入当前登录', desc: '直接保存 pen.dev 现在登录的账号；已在列表中的账号无需重复导入。' },
-  { id: 'login', title: '登录一个新账号', desc: '在 pen.dev 退出并登录新账号，工具自动捕获新会话。' },
-  { id: 'cli', title: '从 CLI 会话导入', desc: '先在终端运行 pen login，再读取 CLI 会话。' },
+const METHODS: { id: Method; title: TranslationKey; desc: TranslationKey }[] = [
+  { id: 'current', title: 'importCurrentTitle', desc: 'importCurrentDescription' },
+  { id: 'login', title: 'loginNewTitle', desc: 'loginNewDescription' },
+  { id: 'cli', title: 'importCliTitle', desc: 'importCliDescription' },
 ];
 
-function WatchTimer() {
+function WindowTitleBar({ t }: { t: Translate }) {
+  const [maximized, setMaximized] = useState(false);
+  const dragStart = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!isDesktop) return;
+
+    const currentWindow = getCurrentWindow();
+    let mounted = true;
+    let unlisten: (() => void) | undefined;
+    const syncMaximized = () => {
+      void currentWindow.isMaximized().then((value) => {
+        if (mounted) setMaximized(value);
+      }).catch(() => undefined);
+    };
+
+    syncMaximized();
+    void currentWindow.onResized(syncMaximized).then((stopListening) => {
+      if (mounted) unlisten = stopListening;
+      else stopListening();
+    }).catch(() => undefined);
+
+    return () => {
+      mounted = false;
+      unlisten?.();
+    };
+  }, []);
+
+  if (!isDesktop) return null;
+
+  const minimize = () => void getCurrentWindow().minimize().catch(() => undefined);
+  const toggleMaximize = async () => {
+    const currentWindow = getCurrentWindow();
+    try {
+      await currentWindow.toggleMaximize();
+      setMaximized(await currentWindow.isMaximized());
+    } catch {
+      // The native window may reject controls while closing.
+    }
+  };
+  const close = () => void getCurrentWindow().close().catch(() => undefined);
+
+  return (
+    <header className="window-titlebar">
+      <div
+        className="window-titlebar-drag"
+        onPointerDown={(event) => {
+          dragStart.current = event.button === 0
+            ? { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+            : null;
+        }}
+        onPointerMove={(event) => {
+          const start = dragStart.current;
+          if (!start || start.pointerId !== event.pointerId) return;
+          if (!(event.buttons & 1)) {
+            dragStart.current = null;
+            return;
+          }
+          if (Math.hypot(event.clientX - start.x, event.clientY - start.y) < 5) return;
+
+          dragStart.current = null;
+          void getCurrentWindow().startDragging().catch(() => undefined);
+        }}
+        onPointerUp={() => {
+          dragStart.current = null;
+        }}
+        onPointerCancel={() => {
+          dragStart.current = null;
+        }}
+      >
+        <PenTool size={15} aria-hidden="true" />
+        <span>{t('windowTitle')}</span>
+      </div>
+      <div className="window-controls">
+        <button type="button" className="window-control" title={t('minimizeWindow')} aria-label={t('minimizeWindow')} onClick={minimize}>
+          <Minus size={14} aria-hidden="true" />
+        </button>
+        <button type="button" className="window-control" title={maximized ? t('restoreWindow') : t('maximizeWindow')} aria-label={maximized ? t('restoreWindow') : t('maximizeWindow')} onClick={() => void toggleMaximize()}>
+          {maximized ? <Copy size={12} aria-hidden="true" /> : <Square size={12} aria-hidden="true" />}
+        </button>
+        <button type="button" className="window-control window-control-close" title={t('closeWindow')} aria-label={t('closeWindow')} onClick={close}>
+          <X size={15} aria-hidden="true" />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function WatchTimer({ t }: { t: Translate }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const started = Date.now();
     const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
     return () => window.clearInterval(timer);
   }, []);
-  return <span className="elapsed" aria-label={`已监听 ${clock(elapsed)}`}>{clock(elapsed)}</span>;
+  const elapsedText = clock(elapsed);
+  return <span className="elapsed" aria-label={t('timerAria', { time: elapsedText })}>{elapsedText}</span>;
 }
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-function qty(value: number | string | undefined): string {
+function qty(value: number | string | undefined, t: Translate): string {
   if (value === undefined) return '—';
-  if (value === 'unlimited') return '不限';
+  if (value === 'unlimited') return t('unlimited');
   if (typeof value === 'number') return value.toLocaleString('en-US');
   return value;
 }
@@ -66,27 +160,30 @@ function featureOf(view: QuotaView | undefined, key: string): QuotaFeature | und
   return view?.quota?.features.find((feature) => feature.key === key);
 }
 
-function quotaNote(view: QuotaView | undefined): string {
+function quotaNote(view: QuotaView | undefined, locale: Locale, t: Translate): string {
   if (view?.quota?.resetsAt) {
     const date = new Date(view.quota.resetsAt).toLocaleDateString('zh-CN', {
       month: '2-digit',
       day: '2-digit',
     });
-    return `本周期至 ${date}`;
+    const localizedDate = locale === 'en-US'
+      ? new Date(view.quota.resetsAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
+      : date;
+    return t('quotaPeriod', { date: localizedDate });
   }
-  return view?.reason ?? '额度未知';
+  return view?.reason ?? t('quotaUnknown');
 }
 
-function quotaCell(label: string, feature: QuotaFeature | undefined, note: string) {
+function quotaCell(label: string, feature: QuotaFeature | undefined, note: string, t: Translate) {
   const limit = feature?.limit;
   const unlimited = limit === 'unlimited';
   const usd = feature?.unit === 'USD';
   const prefix = usd ? '$' : '';
   const value = !feature
     ? '—'
-    : unlimited
-      ? '不限'
-      : `${prefix}${qty(feature.used)} / ${prefix}${qty(limit as number | string | undefined)}`;
+      : unlimited
+        ? t('unlimited')
+        : `${prefix}${qty(feature.used, t)} / ${prefix}${qty(limit as number | string | undefined, t)}`;
   const pct =
     feature && typeof limit === 'number' && limit > 0
       ? Math.min(100, (Number(feature.used) / limit) * 100)
@@ -108,7 +205,7 @@ function App() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [status, setStatus] = useState<AppStatus | null>(null);
   const [online, setOnline] = useState<Account | null>(null);
-  const [filter, setFilter] = useState<Filter>('全部');
+  const [filter, setFilter] = useState<Filter>('all');
   const [modal, setModal] = useState(false);
   const [switchTarget, setSwitchTarget] = useState<Account | null>(null);
   const [switchError, setSwitchError] = useState('');
@@ -117,6 +214,8 @@ function App() {
   const [actionError, setActionError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [tab, setTab] = useState<Tab | null>(null);
+  const [locale, setLocale] = useState<Locale>(localeFromStorage);
   const [method, setMethod] = useState<Method>('current');
   const [alias, setAlias] = useState('');
   const [loginEmail, setLoginEmail] = useState('');
@@ -139,30 +238,50 @@ function App() {
     localStorage.getItem(UPDATE_SKIP_KEY),
   );
   const [menu, setMenu] = useState('');
-  const [sync, setSync] = useState('尚未同步');
+  const [sync, setSync] = useState<TranslationKey>('syncNever');
   const [loading, setLoading] = useState(true);
   const [quotas, setQuotas] = useState<Record<string, QuotaView>>({});
+  const [loadingQuotas, setLoadingQuotas] = useState(false);
+  const quotaSequence = useRef(0);
   const dialog = useRef<HTMLDialogElement>(null);
   const switchDialog = useRef<HTMLDialogElement>(null);
   const actionDialog = useRef<HTMLDialogElement>(null);
   const addButton = useRef<HTMLButtonElement>(null);
+  const t = useCallback<Translate>((key, values) => translate(locale, key, values), [locale]);
 
-  const loadQuotas = useCallback(async (list: Account[]) => {
+  useEffect(() => {
+    localStorage.setItem('pen-switch.locale', locale);
+    const title = translate(locale, 'windowTitle');
+    document.title = title;
+    if ('__TAURI_INTERNALS__' in window) {
+      void getCurrentWindow().setTitle(title).catch(() => undefined);
+    }
+  }, [locale]);
+
+  const loadQuotas = useCallback(async (list: Account[], force = false) => {
+    const sequence = ++quotaSequence.current;
+    setLoadingQuotas(true);
     const targets = list.filter((account) => account.hasToken);
     const entries = await Promise.all(
       targets.map(async (account) => {
         try {
-          return [account.id, await getQuota(account.id)] as const;
+          return [account.id, await getQuota(account.id, force)] as const;
         } catch {
           return [
             account.id,
-            { status: 'unavailable', reason: '额度获取失败', quota: null } as QuotaView,
+            { status: 'unavailable', reason: t('quotaFailed'), quota: null } as QuotaView,
           ] as const;
         }
       }),
     );
+    if (sequence !== quotaSequence.current) return;
     setQuotas(Object.fromEntries(entries));
-  }, []);
+    setLoadingQuotas(false);
+    if (force) {
+      const count = entries.filter(([, view]) => view.status === 'ok').length;
+      setToast(t('quotaRefreshResult', { count, total: entries.length }));
+    }
+  }, [t]);
 
   const refreshSequence = useRef(0);
   const refresh = useCallback(async () => {
@@ -177,13 +296,13 @@ function App() {
       setAccounts(list);
       setStatus(statusView);
       setOnline(live);
-      setSync('刚刚同步');
+      setSync('syncNow');
       // 先出本地结果，再异步做服务端复核，避免启动被网络拖住。
       void verifySessions()
         .then((verified) => {
           if (sequence !== refreshSequence.current) return;
           setAccounts(verified);
-          setSync('刚刚校对');
+          setSync('syncVerified');
         })
         .catch(() => {
           /* 离线时保留本地状态 */
@@ -295,11 +414,7 @@ function App() {
       setSwitchTarget(null);
       await refresh();
       const detail = report.warnings.length ? ` · ${report.warnings.join(' · ')}` : '';
-      setToast(
-        report.penRestarted
-          ? `已切换并重启 pen.dev：${report.switchedTo}${detail}`
-          : `已切换到 ${report.switchedTo}${detail}`,
-      );
+      setToast(`${t(report.penRestarted ? 'switchedRestarted' : 'switched', { email: report.switchedTo })}${detail}`);
     } catch (err) {
       setSwitchError(messageOf(err));
     } finally {
@@ -319,7 +434,7 @@ function App() {
       let original = online;
       if (!original && liveEmail) original = await importAccount('desktop');
       if (!original) {
-        setError('没有检测到当前登录的账号，请先在 pen.dev 登录一次');
+        setError(t('missingCurrentAccount'));
         return;
       }
       if (token !== watchToken.current) return;
@@ -338,7 +453,7 @@ function App() {
       await switchAccount(original.id, true);
       closeModal();
       await refresh();
-      setToast(`已保存 ${account.email}，并切回 ${original.email}`);
+      setToast(t('savedAndReturned', { email: account.email, original: original.email }));
     } catch (err) {
       if (token !== watchToken.current) return;
       setWatching(false);
@@ -360,7 +475,7 @@ function App() {
     }
     if (method === 'login') {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail.trim())) {
-        setError('请输入有效的邮箱地址');
+        setError(t('invalidEmail'));
         return;
       }
       if (!codeSent) {
@@ -368,7 +483,7 @@ function App() {
         return;
       }
       if (!loginCode.trim()) {
-        setError('请输入验证码');
+        setError(t('enterCode'));
         return;
       }
       setBusy('login');
@@ -378,7 +493,7 @@ function App() {
         if (alias.trim()) await saveAlias(account.id, alias.trim());
         closeModal();
         await refresh();
-        setToast(`已添加 ${account.email}，切换后会使用它登录`);
+        setToast(t('addedAccount', { email: account.email }));
       } catch (err) {
         setError(messageOf(err));
       } finally {
@@ -393,7 +508,7 @@ function App() {
       if (alias.trim()) await saveAlias(account.id, alias.trim());
       closeModal();
       await refresh();
-      setToast(`已导入 ${account.email}`);
+      setToast(t('importedAccount', { email: account.email }));
     } catch (err) {
       setError(messageOf(err));
     } finally {
@@ -403,7 +518,7 @@ function App() {
 
   async function sendLoginCode() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail.trim())) {
-      setError('请输入有效的邮箱地址');
+      setError(t('invalidEmail'));
       return;
     }
     setBusy('login');
@@ -411,7 +526,7 @@ function App() {
     try {
       await requestLoginCode(loginEmail.trim());
       setCodeSent(true);
-      setToast(`验证码已发送到 ${loginEmail.trim()}`);
+      setToast(t('codeSent', { email: loginEmail.trim() }));
     } catch (err) {
       setError(messageOf(err));
     } finally {
@@ -435,10 +550,10 @@ function App() {
     try {
       if (kind === 'rename') {
         await saveAlias(account.id, actionAlias.trim());
-        setToast('备注已保存');
+        setToast(t('renamed'));
       } else {
         await removeAccount(account.id);
-        setToast('账号已移除');
+        setToast(t('removedAccount'));
       }
       setAccountAction(null);
       await refresh();
@@ -455,7 +570,7 @@ function App() {
     try {
       const account = await importAccount('desktop');
       await refresh();
-      setToast(`已导入 ${account.email}`);
+      setToast(t('importedAccount', { email: account.email }));
     } catch (err) {
       setToast(messageOf(err));
     } finally {
@@ -472,7 +587,7 @@ function App() {
   async function openRelease() {
     const url = updateInfo?.releaseUrl;
     if (!url) {
-      setToast('该版本没有发布页链接');
+      setToast(t('updateUnavailable'));
       return;
     }
     try {
@@ -491,7 +606,7 @@ function App() {
   async function handleExport() {
     try {
       const path = await exportDiagnostics();
-      setToast(`诊断已导出：${path}`);
+      setToast(t('exportSuccess', { path }));
     } catch (err) {
       setToast(messageOf(err));
     }
@@ -501,7 +616,7 @@ function App() {
     setBusy('sync');
     await refresh();
     setBusy('');
-    setToast('已重新读取本机会话');
+    setToast(t('refreshSuccess'));
   }
 
   const liveEmail = status?.liveEmail ?? null;
@@ -513,121 +628,92 @@ function App() {
   const stateText = (account: Account) =>
     account.sessionState === 'ok'
       ? account.isCurrent
-        ? '当前登录'
-        : '可用'
+        ? t('currentLogin')
+        : t('available')
       : account.sessionState === 'needs_reimport'
-        ? '需重新导入'
-        : '待确认';
+        ? t('needsReimport')
+        : t('unknown');
 
   const selected = accounts.find((account) => account.isCurrent) ?? null;
   const divergent = Boolean(selected && selected.email !== online?.email);
 
   const visible =
-    filter === '全部' ? accounts : accounts.filter((account) => account.source === filter);
+    filter === 'all' ? accounts : accounts.filter((account) => account.source === filter);
   const countOf = (value: Filter) =>
-    value === '全部' ? accounts.length : accounts.filter((a) => a.source === value).length;
+    value === 'all' ? accounts.length : accounts.filter((a) => a.source === value).length;
 
   return (
-    <div className={'shell' + (sidebarCollapsed ? ' sidebar-collapsed' : '')}>
+    <div className="app-window">
+      <WindowTitleBar t={t} />
+      <div className={'shell' + (sidebarCollapsed ? ' sidebar-collapsed' : '')}>
       <aside>
         <div className="brand">
           <PenTool className="brand-mark" size={16} aria-hidden="true" />
           <span className="brand-name">pen.dev</span>
           <button className="brand-collapse" type="button"
-            aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            aria-label={sidebarCollapsed ? t('expandSidebar') : t('collapseSidebar')}
             aria-expanded={!sidebarCollapsed}
             onClick={() => setSidebarCollapsed((value) => !value)}>
             <PanelLeft size={15} aria-hidden="true" />
           </button>
         </div>
-        <button className="nav active"><Users size={15} aria-hidden="true" /> <span>账号</span></button>
-        <div className="sidebar-bottom">
-          <small>v{status?.backendVersion ?? '0.1.0'}</small>
-          <button className="diagnostics-button" onClick={() => void handleCheckUpdates()} disabled={checkingUpdates}>
-            <RefreshCw size={15} className={checkingUpdates ? 'spinning' : undefined} aria-hidden="true" />
-            <span>{checkingUpdates ? '正在检查…' : '检查更新'}</span>
+        <nav className="app-nav" aria-label={t('settings')}>
+          <button className={'nav' + (tab === 'accounts' ? ' active' : '')} aria-current={tab === 'accounts' ? 'page' : undefined} onClick={() => setTab('accounts')}>
+            <Users size={15} aria-hidden="true" /> <span>{t('accounts')}</span>
           </button>
-          {updateInfo?.updateAvailable && updateInfo.latestVersion && (
-            <div className="update-feedback" role="status">
-              <span>发现新版本 v{updateInfo.latestVersion}</span>
-              {updateInfo.releaseUrl && (
-                <button type="button" onClick={() => void openRelease()}>
-                  查看发布页 ↗
-                </button>
-              )}
-            </div>
-          )}
-          {updateError && <div className="update-feedback update-error" role="alert">{updateError}</div>}
-          <button className="diagnostics-button" onClick={() => void handleExport()} title="导出诊断日志">
-            <Download size={15} aria-hidden="true" />
-            <span>导出诊断日志</span>
+          <button className={'nav' + (tab === 'settings' ? ' active' : '')} aria-current={tab === 'settings' ? 'page' : undefined} onClick={() => setTab('settings')}>
+            <SettingsIcon size={15} aria-hidden="true" /> <span>{t('settings')}</span>
           </button>
-        </div>
+        </nav>
       </aside>
 
       <main>
+        {tab !== 'settings' ? <>
         <header>
           <div>
-            <h1>账号</h1>
-            <p>管理 pen.dev 登录账号，查看额度并快速切换。</p>
+            <h1>{t('accounts')}</h1>
+            <p>{t('appDescription')}</p>
           </div>
           <button className="primary" ref={addButton} onClick={openModal}>
-            ＋ 添加账号
+            ＋ {t('addAccount')}
           </button>
         </header>
 
         <div className="mock-note">
-          LOCAL <span>账号来自本机 pen.dev 会话，token 存入系统凭据管理器（Windows 凭据 / macOS 钥匙串）。</span>
+          {t('local')} <span>{t('localNote')}</span>
         </div>
 
         {unknownLive && (
           <div className="mock-note">
-            NEW <span>检测到未导入的账号：{unknownLive}</span>
+            NEW <span>{t('newAccount', { email: unknownLive })}</span>
             <button className="primary" disabled={!!busy} onClick={() => void handleQuickImport()}>
-              导入
+              {t('import')}
             </button>
           </div>
         )}
 
-        {updateInfo?.updateAvailable &&
-          updateInfo.latestVersion &&
-          updateInfo.latestVersion !== skippedVersion && (
-            <div className="mock-note">
-              UPDATE{' '}
-              <span>
-                发现新版本 v{updateInfo.latestVersion}（当前 v{updateInfo.currentVersion}）
-              </span>
-              <button className="primary" onClick={() => void openRelease()}>
-                查看更新
-              </button>
-              <button className="icon" onClick={skipUpdate} title="跳过此版本">
-                跳过
-              </button>
-            </div>
-          )}
-
         <section className="current">
           <span className="dot" />
-          <span>当前登录</span>
-          <strong>{online?.email ?? liveEmail ?? '未导入'}</strong>
+          <span>{t('currentLogin')}</span>
+          <strong>{online?.email ?? liveEmail ?? t('notImported')}</strong>
           <span className="badge">
-            {online ? (quotas[online.id]?.quota?.plan ?? '未知') : liveEmail ? '未导入' : '—'}
+            {online ? (quotas[online.id]?.quota?.plan ?? t('unknownPlan')) : liveEmail ? t('notImported') : '—'}
           </span>
           <span className="current-usage">
             {online
-              ? `来源 ${online.source === 'desktop' ? '桌面会话' : 'CLI 会话'}`
+              ? `${t('sourcePrefix')}: ${t(online.source === 'desktop' ? 'desktopSession' : 'cliSession')}`
               : liveEmail
-                ? '尚未导入到列表'
+                ? t('notInList')
                 : '—'}
           </span>
           {divergent && selected && (
-            <small title="应用内已选择，但尚未写入 pen.dev 会话文件">
-              应用内已选：{selected.email}（未写入）
+            <small title={t('appSelectedNotWritten')}>
+              {t('selectedAccount', { email: selected.email })}
             </small>
           )}
           <button
             className={busy === 'sync' ? 'spinning icon' : 'icon'}
-            title="重新读取本机会话"
+            title={t('refreshSession')}
             disabled={!!busy}
             onClick={handleRefresh}
           >
@@ -637,26 +723,31 @@ function App() {
 
         <div className="filters">
           <div className="segments">
-            {(['全部', 'desktop', 'cli'] as Filter[]).map((value) => (
+            {(['all', 'desktop', 'cli'] as Filter[]).map((value) => (
               <button
                 key={value}
                 className={filter === value ? 'selected' : ''}
                 onClick={() => setFilter(value)}
               >
-                {value === '全部' ? '全部' : value === 'desktop' ? '桌面会话' : 'CLI 会话'}
+                {t(value === 'all' ? 'all' : value === 'desktop' ? 'desktopSession' : 'cliSession')}
                 <span>{countOf(value)}</span>
               </button>
             ))}
           </div>
           <div className="filter-right">
-            <small>{sync}</small>
+            <small>{t(sync)}</small>
+            <button type="button" className="icon" title={t('refreshQuotas')} aria-label={t('refreshQuotas')}
+              disabled={loading || loadingQuotas || !accounts.some((account) => account.hasToken)}
+              onClick={() => void loadQuotas(accounts, true)}>
+              <RefreshCw size={15} className={loadingQuotas ? 'spinning' : undefined} aria-hidden="true" />
+            </button>
           </div>
         </div>
 
-        <section className="accounts" aria-label="账号列表">
-          {loading && <div className="empty">正在读取本机账号…</div>}
+        <section className="accounts" aria-label={t('accountList')}>
+          {loading && <div className="empty">{t('loadingAccounts')}</div>}
           {!loading && accounts.length === 0 && (
-            <div className="empty">还没有导入账号，点击右上角「添加账号」读取本机会话。</div>
+            <div className="empty">{t('emptyAccounts')}</div>
           )}
           {!loading &&
             visible.map((account, index) => (
@@ -668,14 +759,14 @@ function App() {
                 <div className="identity">
                   <div>
                     <strong title={account.email}>{account.email}</strong>
-                    <span className="badge">{quotas[account.id]?.quota?.plan ?? account.plan ?? '未知'}</span>
+                    <span className="badge">{quotas[account.id]?.quota?.plan ?? account.plan ?? t('unknownPlan')}</span>
                   </div>
                   <small>
-                    {account.alias || (account.hasToken ? '会话已保存' : '需要重新导入')}
+                    {account.alias || (account.hasToken ? t('sessionSaved') : t('needsReimport'))}
                     {' · '}
-                    {account.source === 'desktop' ? '桌面会话' : 'CLI 会话'}
+                    {t(account.source === 'desktop' ? 'desktopSession' : 'cliSession')}
                     {account.lastVerifiedAt
-                      ? ` · 确认于 ${new Date(account.lastVerifiedAt).toLocaleTimeString('zh-CN', {
+                      ? ` · ${t('verifiedAt')} ${new Date(account.lastVerifiedAt).toLocaleTimeString(locale, {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}`
@@ -684,19 +775,19 @@ function App() {
                 </div>
                 <div className="quotas">
                   {quotaCell(
-                    'Agent 天数',
+                    t('quotaAgentDays'),
                     featureOf(quotas[account.id], 'mcp_usage_days'),
-                    quotaNote(quotas[account.id]),
+                    quotaNote(quotas[account.id], locale, t), t,
                   )}
                   {quotaCell(
-                    '图像 / SVG',
+                    t('quotaImages'),
                     featureOf(quotas[account.id], 'image_generations'),
-                    quotaNote(quotas[account.id]),
+                    quotaNote(quotas[account.id], locale, t), t,
                   )}
                   {quotaCell(
-                    '托管模型',
+                    t('quotaHosted'),
                     featureOf(quotas[account.id], 'pen_inference_budget_usd'),
-                    quotaNote(quotas[account.id]),
+                    quotaNote(quotas[account.id], locale, t), t,
                   )}
                 </div>
                 <div className="actions">
@@ -712,21 +803,21 @@ function App() {
                     title={
                       account.sessionState === 'ok'
                         ? account.isCurrent
-                          ? '与磁盘上的 pen.dev 会话一致，且服务端已确认'
-                          : '服务端已确认该会话有效'
+                          ? t('currentAccountMatches')
+                          : t('sessionVerified')
                         : account.sessionState === 'needs_reimport'
                           ? account.revoked
-                            ? '服务端返回 401，该会话已失效，请重新导入'
-                            : '没有可用会话，请重新导入'
-                          : '尚未与服务端核对（离线或未检测）'
+                            ? t('sessionRevoked')
+                            : t('sessionMissing')
+                          : t('sessionUnverified')
                     }
                   >
                     ● {stateText(account)}
                   </span>
                   <button
                     className="play"
-                    aria-label={`切换到 ${account.email}`}
-                    title={account.isCurrent ? '当前登录' : '切换账号'}
+                    aria-label={t('switchTo', { email: account.email })}
+                    title={account.isCurrent ? t('currentLogin') : t('switchAccount')}
                     disabled={
                       !!busy ||
                       account.isCurrent ||
@@ -740,19 +831,19 @@ function App() {
                   <div className="menu-wrap">
                     <button
                       className="icon"
-                      aria-label={`管理 ${account.email}`}
+                      aria-label={t('manageAccount', { email: account.email })}
                       onClick={() => setMenu(menu === account.id ? '' : account.id)}
                     >
                       <EllipsisVertical size={15} aria-hidden="true" />
                     </button>
                     {menu === account.id && (
                       <div className="menu">
-                        <button onClick={() => openAccountAction('rename', account)}>修改备注</button>
+                        <button onClick={() => openAccountAction('rename', account)}>{t('rename')}</button>
                         <button
                           disabled={account.isCurrent}
                           onClick={() => openAccountAction('remove', account)}
                         >
-                          移除账号
+                          {t('remove')}
                         </button>
                       </div>
                     )}
@@ -761,12 +852,73 @@ function App() {
               </article>
             ))}
           {!loading && accounts.length > 0 && visible.length === 0 && (
-            <div className="empty">暂无该来源的账号</div>
+            <div className="empty">{t('noFilteredAccounts')}</div>
           )}
           <footer>
-            ⓘ 切换使用目标账号的独立额度，不会重置原账号的用量。额度与套餐来自 pen.dev 官方接口，缓存 5 分钟。
+            ⓘ {t('quotaFooter')}
           </footer>
         </section>
+        </> : (
+          <section className="settings-page" aria-labelledby="settings-title">
+            <header>
+              <div>
+                <h1 id="settings-title">{t('settings')}</h1>
+                <p>{t('settingsDescription')}</p>
+              </div>
+            </header>
+            <section className="settings-section">
+              <div className="settings-copy">
+                <h2>{t('language')}</h2>
+                <p>{t('languageDescription')}</p>
+              </div>
+              <label className="language-select">
+                <span className="visually-hidden">{t('language')}</span>
+                <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)}>
+                  <option value="zh-CN">{t('chinese')}</option>
+                  <option value="en-US">{t('english')}</option>
+                </select>
+              </label>
+            </section>
+            <section className="settings-section">
+              <div className="settings-copy">
+                <h2>{t('version')}</h2>
+                <p>{t('currentVersion')}</p>
+              </div>
+              <span className="settings-value">{t('versionValue', { version: status?.backendVersion ?? '0.1.0' })}</span>
+            </section>
+            <section className="settings-section">
+              <div className="settings-copy">
+                <h2>{t('updates')}</h2>
+                <p>{t('updatesDescription')}</p>
+                {updateInfo && !updateInfo.updateAvailable && (
+                  <small className="settings-feedback" role="status">{t('updateUpToDate', { version: updateInfo.currentVersion })}</small>
+                )}
+                {updateInfo?.updateAvailable && updateInfo.latestVersion && updateInfo.latestVersion !== skippedVersion && (
+                  <div className="settings-update" role="status">
+                    <span>{t('updateAvailable', { version: updateInfo.latestVersion })}</span>
+                    {updateInfo.releaseUrl && <button type="button" className="link" onClick={() => void openRelease()}>{t('releasePage')}</button>}
+                    <button type="button" className="link" onClick={skipUpdate}>{t('skip')}</button>
+                  </div>
+                )}
+                {updateError && <small className="settings-feedback update-error" role="alert">{t('updateError', { error: updateError })}</small>}
+              </div>
+              <button className="settings-action" type="button" onClick={() => void handleCheckUpdates()} disabled={checkingUpdates}>
+                <RefreshCw size={15} className={checkingUpdates ? 'spinning' : undefined} aria-hidden="true" />
+                {checkingUpdates ? t('checking') : t('updateCheck')}
+              </button>
+            </section>
+            <section className="settings-section">
+              <div className="settings-copy">
+                <h2>{t('diagnostics')}</h2>
+                <p>{t('diagnosticsDescription')}</p>
+              </div>
+              <button className="settings-action" type="button" onClick={() => void handleExport()}>
+                <Download size={15} aria-hidden="true" />
+                {t('exportDiagnostics')}
+              </button>
+            </section>
+          </section>
+        )}
       </main>
 
       <dialog
@@ -784,30 +936,30 @@ function App() {
         <form onSubmit={(event) => void submitAccountAction(event)}>
           <div className="switch-dialog-head">
             <div>
-              <span className="switch-eyebrow">账号管理</span>
-              <h2 id="account-action-title">{accountAction?.kind === 'rename' ? '修改账号备注' : '移除这个账号？'}</h2>
-              <p>{accountAction?.kind === 'rename' ? '给账号一个容易辨认的名字。' : '此操作只移除本工具保存的账号信息。'}</p>
+              <span className="switch-eyebrow">{t('accountManagement')}</span>
+              <h2 id="account-action-title">{accountAction?.kind === 'rename' ? t('editAccountNote') : t('removeAccountTitle')}</h2>
+              <p>{accountAction?.kind === 'rename' ? t('editAccountDescription') : t('removeAccountDescription')}</p>
             </div>
-            <button type="button" className="icon" aria-label="关闭" onClick={closeAccountAction} disabled={actionBusy}><X size={16} aria-hidden="true" /></button>
+            <button type="button" className="icon" aria-label={t('close')} onClick={closeAccountAction} disabled={actionBusy}><X size={16} aria-hidden="true" /></button>
           </div>
           <div className="account-action-body">
             <div className="action-account" title={accountAction?.account.email}>{accountAction?.account.email}</div>
             {accountAction?.kind === 'rename' ? (
-              <label className="field" htmlFor="account-alias">备注名
+              <label className="field" htmlFor="account-alias">{t('note')}
                 <input id="account-alias" value={actionAlias} maxLength={60} autoFocus
-                  placeholder="例如：备用账号" onChange={(event) => setActionAlias(event.target.value)} disabled={actionBusy} />
+                  placeholder={t('exampleBackup')} onChange={(event) => setActionAlias(event.target.value)} disabled={actionBusy} />
               </label>
             ) : (
               <div className="switch-notice"><Info size={16} aria-hidden="true" />
-                <span>会删除本工具保存的会话凭据和备注，不会注销 pen.dev 账号，也不会清除当前正在使用的 pen.dev 会话。</span>
+                <span>{t('removeAccountWarning')}</span>
               </div>
             )}
             {actionError && <p className="switch-error" role="alert">{actionError}</p>}
           </div>
           <div className="switch-dialog-footer">
-            <button type="button" onClick={closeAccountAction} disabled={actionBusy}>取消</button>
+            <button type="button" onClick={closeAccountAction} disabled={actionBusy}>{t('cancel')}</button>
             <button type="submit" className={accountAction?.kind === 'remove' ? 'destructive' : 'primary'} disabled={actionBusy}>
-              {actionBusy ? '处理中…' : accountAction?.kind === 'rename' ? '保存备注' : '移除账号'}
+              {actionBusy ? t('processing') : accountAction?.kind === 'rename' ? t('saveNote') : t('remove')}
             </button>
           </div>
         </form>
@@ -827,38 +979,38 @@ function App() {
       >
         <div className="switch-dialog-head">
           <div>
-            <span className="switch-eyebrow">切换账号</span>
-            <h2 id="switch-dialog-title">确认切换登录账号？</h2>
-            <p>将使用目标账号的独立额度继续工作。</p>
+            <span className="switch-eyebrow">{t('switchAccount')}</span>
+            <h2 id="switch-dialog-title">{t('switchTitle')}</h2>
+            <p>{t('switchDescription')}</p>
           </div>
-          <button type="button" className="icon" aria-label="关闭" onClick={closeSwitchDialog} disabled={!!busy}><X size={16} aria-hidden="true" /></button>
+          <button type="button" className="icon" aria-label={t('close')} onClick={closeSwitchDialog} disabled={!!busy}><X size={16} aria-hidden="true" /></button>
         </div>
         <div className="switch-dialog-body">
           <div className="switch-route">
             <div className="switch-identity">
-              <span className="switch-caption">当前登录</span>
-              <strong title={online?.email ?? status?.liveEmail ?? undefined}>{online?.email ?? status?.liveEmail ?? '未导入'}</strong>
+              <span className="switch-caption">{t('currentAccount')}</span>
+              <strong title={online?.email ?? status?.liveEmail ?? undefined}>{online?.email ?? status?.liveEmail ?? t('notImported')}</strong>
             </div>
             <ArrowRight size={18} className="switch-arrow" aria-hidden="true" />
             <div className="switch-identity target">
-              <span className="switch-caption">切换到</span>
+              <span className="switch-caption">{t('targetAccount')}</span>
               <strong title={switchTarget?.email}>{switchTarget?.email}</strong>
             </div>
           </div>
           <div className="switch-notice">
             <Info size={16} aria-hidden="true" />
             <span>{status?.penRunning
-              ? '切换时会先退出 pen.dev，写入目标会话后自动重新打开。请先保存正在进行的工作。'
-              : '切换将写入目标账号的会话，并尝试打开 pen.dev。请先保存正在进行的工作。'}
-              <br />原账号的额度和用量不会重置。</span>
+              ? t('switchRunningWarning')
+              : t('switchStoppedWarning')}
+              <br />{t('quotaNotReset')}</span>
           </div>
-          {switchError && <p className="switch-error" role="alert">切换失败：{switchError}</p>}
+          {switchError && <p className="switch-error" role="alert">{t('switchFailed', { error: switchError })}</p>}
         </div>
         <div className="switch-dialog-footer">
-          <button type="button" onClick={closeSwitchDialog} disabled={!!busy}>取消</button>
+          <button type="button" onClick={closeSwitchDialog} disabled={!!busy}>{t('cancel')}</button>
           <button type="button" className="primary" disabled={!!busy || !switchTarget}
             onClick={() => switchTarget && void handleSwitch(switchTarget)}>
-            {busy ? '正在切换…' : '确认切换'}
+            {busy ? t('switching') : t('confirmSwitch')}
           </button>
         </div>
       </dialog>
@@ -872,14 +1024,14 @@ function App() {
       >
         <div className="dialog-head">
           <div>
-            <h2>添加 pen.dev 账号</h2>
+            <h2>{t('addAccountTitle')}</h2>
             <p>
               {method === 'login'
-                ? '退出当前账号并用新邮箱登录，工具会自动捕获新会话。'
-                : '从本机已登录的会话导入，账号资料只保存在这台电脑。'}
+                ? t('addLoginDescription')
+                : t('addImportDescription')}
             </p>
           </div>
-          <button className="icon" aria-label="关闭" onClick={closeModal}>
+          <button className="icon" aria-label={t('close')} onClick={closeModal}>
             <X size={16} aria-hidden="true" />
           </button>
         </div>
@@ -889,8 +1041,8 @@ function App() {
               LOCAL{' '}
               <span>
                 {method === 'login'
-                  ? '不会读取密码，只在检测到新登录后复制会话文件里的邮箱与 token。'
-                  : '不会读取密码或验证码，只复制现有会话文件里的邮箱与 token。'}
+                  ? t('localLoginNote')
+                  : t('localImportNote')}
               </span>
             </div>
             {METHODS.map((item) => (
@@ -910,32 +1062,34 @@ function App() {
                 <span>
                   <strong className="method-title">
                     {item.id === 'current' ? <ScanLine size={14} /> : item.id === 'login' ? <LogIn size={14} /> : <Terminal size={14} />}
-                    {item.title}
-                    {item.id === 'login' && <em className="recommended">推荐</em>}
+                    {t(item.title)}
+                    {item.id === 'login' && <em className="recommended">{t('recommended')}</em>}
                   </strong>
-                  <small>{item.desc}</small>
+                  <small>{t(item.desc)}</small>
                 </span>
               </label>
             {item.id === 'login' && method === 'login' && loginMode === 'watch' && (
               <div className="watch-flow">
                 <ol className="watch-steps">
                   <li className={watchOrigin || online ? 'done' : ''}>
-                    已保存当前账号 {watchOrigin?.email ?? online?.email ?? liveEmail ?? '（待检测）'}
+                    {watchOrigin || online || liveEmail
+                      ? t('watchSavedCurrent', { email: watchOrigin?.email ?? online?.email ?? liveEmail ?? '' })
+                      : t('watchNoCurrent')}
                   </li>
-                  <li>退出当前账号，在 pen.dev 里用新邮箱登录（验证码或密码）</li>
-                  <li className={watchResult ? 'done' : ''}>检测到新登录后保存，并切回原来的账号</li>
+                  <li>{t('watchStepLogin')}</li>
+                  <li className={watchResult ? 'done' : ''}>{t('watchStepFinish')}</li>
                 </ol>
                 <div className="watching-bar" role={watching ? 'status' : undefined}>
                   <span className={watching ? 'pulse' : 'idle-dot'} />
                   <span className="watching-label">
-                    {watching ? '正在监听 ~/.pencil/session-desktop.json' : '点击开始监听后，等待 pen.dev 登录新账号'}
+                    {watching ? t('watchingSession') : t('waitingForLogin')}
                   </span>
-                  {watching ? <WatchTimer /> : <span className="elapsed">0:00</span>}
-                  {watching && <button type="button" onClick={stopWatch}>取消监听</button>}
+                  {watching ? <WatchTimer t={t} /> : <span className="elapsed">0:00</span>}
+                  {watching && <button type="button" onClick={stopWatch}>{t('cancelWatch')}</button>}
                 </div>
                 {watchTimedOut && (
                   <p className="error" role="alert">
-                    超过 {clock(Math.floor(WATCH_TIMEOUT_MS / 1000))} 没有检测到新登录，可以重试或改用验证码登录。
+                    {t('watchTimeout', { time: clock(Math.floor(WATCH_TIMEOUT_MS / 1000)) })}
                   </p>
                 )}
                 <button
@@ -948,7 +1102,7 @@ function App() {
                     setWatchTimedOut(false);
                   }}
                 >
-                  改用验证码登录
+                  {t('useEmailCode')}
                 </button>
               </div>
             )}
@@ -962,10 +1116,10 @@ function App() {
                     setError('');
                   }}
                 >
-                  改用自动捕获登录
+                  {t('useAutoCapture')}
                 </button>
                 <label className="field">
-                  邮箱
+                  {t('email')}
                   <input
                     type="email"
                     value={loginEmail}
@@ -973,24 +1127,24 @@ function App() {
                       setLoginEmail(event.target.value);
                       setCodeSent(false);
                     }}
-                    placeholder="name@example.com"
+                    placeholder={t('emailPlaceholder')}
                     autoFocus
                   />
                 </label>
                 {codeSent && (
                   <label className="field">
-                    验证码
+                    {t('verificationCode')}
                     <input
                       value={loginCode}
                       onChange={(event) => setLoginCode(event.target.value)}
-                      placeholder="邮件里的 6 位验证码"
+                      placeholder={t('codePlaceholder')}
                       autoFocus
                     />
                   </label>
                 )}
                 {codeSent && (
                   <button type="button" onClick={() => void sendLoginCode()} disabled={busy === 'login'}>
-                    重新发送验证码
+                    {t('resendCode')}
                   </button>
                 )}
               </div>
@@ -998,8 +1152,8 @@ function App() {
             {item.id === 'cli' && (
               <div className="cli-command">
                 <code>pen login</code>
-                <button type="button" title="复制命令" aria-label="复制 pen login 命令"
-                  onClick={() => void navigator.clipboard.writeText('pen login').then(() => setToast('已复制 pen login')).catch(() => setToast('复制失败，请手动复制'))}>
+                <button type="button" title={t('copyCommand')} aria-label={t('copyCommand')}
+                  onClick={() => void navigator.clipboard.writeText('pen login').then(() => setToast(t('copiedCommand'))).catch(() => setToast(t('copyFailed')))}>
                   <Copy size={13} />
                 </button>
               </div>
@@ -1007,12 +1161,12 @@ function App() {
               </div>
             ))}
             <label className="field">
-              备注名 <small>可选</small>
+              {t('note')} <small>{t('optional')}</small>
               <input
                 value={alias}
                 onChange={(event) => setAlias(event.target.value)}
                 maxLength={60}
-                placeholder="例如：备用账号"
+                placeholder={t('exampleBackupAlias')}
                 autoFocus
               />
             </label>
@@ -1023,26 +1177,26 @@ function App() {
             )}
           </div>
           <div className="dialog-footer">
-            <small className="security-note"><LockKeyhole size={12} /> 会话 token 仅保存在本机系统凭据管理器</small>
+            <small className="security-note"><LockKeyhole size={12} /> {t('secureToken')}</small>
             <button type="button" onClick={closeModal}>
-              取消
+              {t('cancel')}
             </button>
             <button className="primary" type="submit" disabled={busy === 'add' || busy === 'login' || watching}>
               {method === 'login' && loginMode === 'watch'
                 ? watching
-                  ? '等待登录…'
+                  ? t('waitingLogin')
                   : watchTimedOut
-                    ? '重新监听'
-                    : '开始监听'
+                    ? t('retryWatch')
+                    : t('beginWatch')
                 : busy === 'login'
-                  ? '处理中…'
+                  ? t('loggingIn')
                   : method === 'login'
                     ? codeSent
-                      ? '登录'
-                      : '发送验证码'
+                      ? t('login')
+                      : t('sendCode')
                     : busy === 'add'
-                      ? '导入中…'
-                      : '导入账号'}
+                      ? t('importing')
+                      : t('importAccount')}
             </button>
           </div>
         </form>
@@ -1053,6 +1207,7 @@ function App() {
           {toast}
         </div>
       )}
+      </div>
     </div>
   );
 }

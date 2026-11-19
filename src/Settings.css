@@ -1,0 +1,214 @@
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-window {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.app-window > .shell {
+  flex: 1;
+  min-height: 0;
+}
+
+.window-titlebar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  flex: 0 0 40px;
+  height: 40px;
+  margin: 0;
+  border-bottom: 1px solid #ffffff0d;
+  background: #181818;
+  color: var(--text);
+  user-select: none;
+}
+
+.window-titlebar-drag {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 9px;
+  padding: 0 12px;
+  color: #d5d5d5;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.window-titlebar-drag svg {
+  flex: none;
+  color: #e8e8e4;
+}
+
+.window-titlebar-drag span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.window-controls {
+  display: flex;
+  flex: none;
+}
+
+.window-titlebar .window-control {
+  display: grid;
+  width: 46px;
+  height: 39px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #b6b6b6;
+}
+
+.window-titlebar .window-control:hover:not(:disabled) {
+  background: #ffffff16;
+  color: #ffffff;
+}
+
+.window-titlebar .window-control-close:hover:not(:disabled) {
+  background: #c42b1c;
+  color: #ffffff;
+}
+
+.app-nav .nav {
+  background: transparent;
+}
+
+.app-nav .nav:hover:not(:disabled) {
+  background: #ffffff0a;
+}
+
+.app-nav .nav.active,
+.app-nav .nav.active:hover:not(:disabled) {
+  background: #ffffff0f;
+}
+
+.settings-page {
+  width: min(100%, 920px);
+}
+
+.settings-page > header {
+  margin-bottom: 26px;
+}
+
+.settings-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 88px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-copy {
+  min-width: 0;
+}
+
+.settings-copy h2 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.settings-copy p {
+  max-width: 600px;
+  font-size: 12px;
+}
+
+.language-select select {
+  min-width: 190px;
+  height: 36px;
+  padding: 0 32px 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.settings-action svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.settings-feedback {
+  display: block;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.settings-update {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--mint);
+  font-size: 12px;
+}
+
+.settings-update .link {
+  align-self: auto;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .app-nav .nav {
+    justify-content: center;
+    padding: 8px;
+  }
+
+  .settings-section {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 0;
+  }
+
+  .settings-section > .settings-action,
+  .settings-section > .language-select,
+  .settings-section > .settings-value {
+    align-self: stretch;
+  }
+
+  .language-select select {
+    width: 100%;
+  }
+}

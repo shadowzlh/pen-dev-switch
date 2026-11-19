@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { localeFromStorage, translate } from './i18n';
 
 export type AccountSource = 'desktop' | 'cli';
 
@@ -31,7 +32,7 @@ export interface UpdateInfo {
 
 export async function checkUpdates(): Promise<UpdateInfo> {
   if (!isDesktop) {
-    throw new Error('浏览器演示模式无法检查更新，请在桌面应用中使用');
+    throw new Error(translate(localeFromStorage(), 'browserUpdateUnsupported'));
   }
   return call<UpdateInfo>('check_updates');
 }
@@ -153,13 +154,13 @@ export async function importAccount(source: AccountSource): Promise<Account> {
 
 /** 发送邮箱验证码（登录新账号）。 */
 export async function requestLoginCode(email: string): Promise<void> {
-  if (!isDesktop) throw new Error('浏览器演示模式不支持登录');
+  if (!isDesktop) throw new Error(translate(localeFromStorage(), 'browserLoginUnsupported'));
   await call<void>('auth_request_code', { email });
 }
 
 /** 用验证码登录，成功后账号进入列表。 */
 export async function loginWithCode(email: string, code: string): Promise<Account> {
-  if (!isDesktop) throw new Error('浏览器演示模式不支持登录');
+  if (!isDesktop) throw new Error(translate(localeFromStorage(), 'browserLoginUnsupported'));
   return call<Account>('auth_login', { email, code });
 }
 
@@ -171,7 +172,7 @@ export async function watchNewAccount(
   excludeEmail: string,
   timeoutMs = 120_000,
 ): Promise<Account | null> {
-  if (!isDesktop) throw new Error('浏览器演示模式不支持监听本机会话');
+  if (!isDesktop) throw new Error(translate(localeFromStorage(), 'browserWatchUnsupported'));
   return call<Account | null>('account_watch_new', { excludeEmail, timeoutMs });
 }
 
@@ -182,7 +183,7 @@ export async function cancelWatch(): Promise<void> {
 export async function setAlias(id: string, alias: string): Promise<Account> {
   if (!isDesktop) {
     const account = demo.accounts.find((a) => a.id === id);
-    if (!account) throw new Error('账号不存在');
+    if (!account) throw new Error(translate(localeFromStorage(), 'accountMissing'));
     account.alias = alias;
     return demoView(account);
   }
@@ -191,7 +192,7 @@ export async function setAlias(id: string, alias: string): Promise<Account> {
 
 export async function removeAccount(id: string): Promise<void> {
   if (!isDesktop) {
-    if (demo.current === id) throw new Error('当前登录账号不能移除');
+    if (demo.current === id) throw new Error(translate(localeFromStorage(), 'cannotRemoveCurrent'));
     demo.accounts = demo.accounts.filter((a) => a.id !== id);
     return;
   }
@@ -213,7 +214,7 @@ export async function switchAccount(
 ): Promise<SwitchReport> {
   if (!isDesktop) {
     const account = demo.accounts.find((a) => a.id === id);
-    if (!account) throw new Error('账号不存在');
+    if (!account) throw new Error(translate(localeFromStorage(), 'accountMissing'));
     demo.current = id;
     return {
       switchedTo: account.email,
@@ -228,7 +229,7 @@ export async function switchAccount(
 /** 服务端复核所有已保存会话（`/auth/session-info`）；401 会被标记为已吊销。 */
 /** 导出诊断文本到 Downloads，返回文件路径。 */
 export async function exportDiagnostics(): Promise<string> {
-  if (!isDesktop) return '浏览器演示模式不支持导出诊断';
+  if (!isDesktop) throw new Error(translate(localeFromStorage(), 'browserExportUnsupported'));
   return call<string>('export_diagnostics');
 }
 
@@ -250,11 +251,11 @@ export async function appStatus(): Promise<AppStatus> {
   return call<AppStatus>('app_status');
 }
 
-export async function getQuota(id: string): Promise<QuotaView> {
+export async function getQuota(id: string, force = false): Promise<QuotaView> {
   if (!isDesktop) {
     return { status: 'unavailable', reason: '演示数据不含额度', quota: null };
   }
-  return call<QuotaView>('quota_get', { id });
+  return call<QuotaView>('quota_get', { id, force });
 }
 
 

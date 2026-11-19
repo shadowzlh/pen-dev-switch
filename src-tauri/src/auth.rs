@@ -2,14 +2,19 @@ use crate::pen::session::Workspace;
 use serde::Deserialize;
 use std::time::Duration;
 
-/// 与桌面客户端一致的 API 基址。
-const API_BASE: &str = "https://api.pencil.dev";
+/// 与当前 pen.dev CLI 默认配置一致的 API 基址。
+pub(crate) const API_BASE: &str = "https://api.pen.dev";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(dead_code)] // slug / profileUrl / status 保留给后续“完善资料”流程
 pub struct LoginPayload {
-    #[serde(default)]
+    #[serde(
+        default,
+        alias = "accessToken",
+        alias = "access_token",
+        alias = "sessionToken"
+    )]
     pub token: Option<String>,
     #[serde(default)]
     pub email: Option<String>,
@@ -135,7 +140,51 @@ pub fn login_with_code(email: &str, code: &str, device_id: &str) -> Result<Login
     });
 
     let value = post("/auth/device-login", &body)?;
-    serde_json::from_value::<LoginPayload>(value).map_err(|err| format!("登录响应解析失败：{err}"))
+    parse_login_payload(&value)
+}
+
+fn parse_login_payload(value: &serde_json::Value) -> Result<LoginPayload, String> {
+    fn find_token(value: &serde_json::Value, depth: usize) -> Option<String> {
+        if depth > 3 {
+            return None;
+        }
+        if let Some(token) = value
+            .get("token")
+            .or_else(|| value.get("accessToken"))
+            .or_else(|| value.get("access_token"))
+            .or_else(|| value.get("sessionToken"))
+            .and_then(serde_json::Value::as_str)
+            .filter(|token| !token.trim().is_empty())
+        {
+            return Some(token.to_string());
+        }
+        ["data", "session", "result"]
+            .iter()
+            .filter_map(|key| value.get(*key))
+            .find_map(|nested| find_token(nested, depth + 1))
+    }
+
+    let mut payload = serde_json::from_value::<LoginPayload>(value.clone())
+        .map_err(|err| format!("登录响应解析失败：{err}"))?;
+    payload.token = payload
+        .token
+        .map(|token| token.trim().to_string())
+        .filter(|token| !token.is_empty())
+        .or_else(|| find_token(value, 0));
+    if payload.email.as_deref().is_none_or(str::is_empty) {
+        payload.email = ["data", "session", "result"]
+            .iter()
+            .filter_map(|key| value.get(*key))
+            .find_map(|nested| {
+                serde_json::from_value::<LoginPayload>(nested.clone())
+                    .ok()
+                    .and_then(|nested| nested.email)
+            });
+    }
+    if payload.token.as_deref().is_none_or(str::is_empty) {
+        return Err("登录响应未包含会话凭据，请检查验证码登录接口响应".to_string());
+    }
+    Ok(payload)
 }
 
 #[cfg(test)]
@@ -163,8 +212,32 @@ mod tests {
             r#"{"token":"t","email":"a@example.com","slug":"a","profileUrl":"https://pen.dev/a","status":"user_with_password","hasSetPassword":true}"#,
         )
         .unwrap();
+        assert_eq!(payload.token.as_deref(), Some("t"));
         assert_eq!(payload.email.as_deref(), Some("a@example.com"));
         assert_eq!(payload.slug.as_deref(), Some("a"));
         assert_eq!(payload.has_set_password, Some(true));
+    }
+
+    #[test]
+    fn parses_wrapped_access_token_response() {
+        let value = serde_json::json!({
+            "data": {
+                "session": { "accessToken": "wrapped-token" },
+                "email": "a@example.com"
+            }
+        });
+        let payload = parse_login_payload(&value).unwrap();
+        assert_eq!(payload.token.as_deref(), Some("wrapped-token"));
+        assert_eq!(payload.email.as_deref(), Some("a@example.com"));
+    }
+
+    #[test]
+    fn rejects_login_response_without_token() {
+        let value = serde_json::json!({ "email": "a@example.com" });
+        assert!(
+            parse_login_payload(&value)
+                .unwrap_err()
+                .contains("未包含会话凭据")
+        );
     }
 }

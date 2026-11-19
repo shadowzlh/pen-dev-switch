@@ -1,8 +1,5 @@
+use crate::auth::API_BASE;
 use std::time::Duration;
-
-/// 与桌面客户端一致的 API 基址（客户端常量 `apiHostName`）。
-const API_BASE: &str = "https://api.pencil.dev";
-
 
 #[derive(Debug)]
 pub enum Verdict {
@@ -53,7 +50,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore = "需要网络访问 api.pencil.dev"]
+    #[ignore = "需要网络访问 api.pen.dev"]
     fn rejects_invalid_token() {
         match verify("not-a-real-token", "pen-switch-test") {
             Verdict::Revoked => {}

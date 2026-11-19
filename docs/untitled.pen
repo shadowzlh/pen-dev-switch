@@ -116,104 +116,44 @@
             },
             {
               "type": "frame",
+              "id": "TB7mv",
+              "name": "Nav 设置",
+              "width": "fill_container",
+              "gap": 10,
+              "padding": [
+                8,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "CB6Ie",
+                  "name": "Icon",
+                  "width": 15,
+                  "height": 15,
+                  "icon": "settings-2",
+                  "library": "lucide",
+                  "fill": "$tx2"
+                },
+                {
+                  "type": "text",
+                  "id": "Is04S",
+                  "name": "Label",
+                  "fill": "$tx2",
+                  "content": "设置",
+                  "fontFamily": "Inter",
+                  "fontSize": 13.5,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
               "id": "BhGKN",
               "name": "Spacer",
               "width": "fill_container",
               "height": "fill_container"
-            },
-            {
-              "type": "frame",
-              "id": "JHp1T",
-              "name": "Sidebar Footer",
-              "width": "fill_container",
-              "stroke": "$line",
-              "strokeWidth": {
-                "top": 1
-              },
-              "layout": "vertical",
-              "gap": 10,
-              "padding": [
-                12,
-                8,
-                4,
-                8
-              ],
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "snB8o",
-                  "name": "Mode",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "ellipse",
-                      "id": "R8ITKE",
-                      "name": "Dot",
-                      "fill": "$ok",
-                      "width": 6,
-                      "height": 6
-                    },
-                    {
-                      "type": "text",
-                      "id": "aARN7",
-                      "name": "Label",
-                      "fill": "$tx2",
-                      "content": "本地后端模式",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "text",
-                  "id": "J94UO",
-                  "name": "Version",
-                  "fill": "$tx3",
-                  "content": "v0.1.0 · Tauri · pen 运行中",
-                  "fontFamily": "Inter",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
-                },
-                {
-                  "type": "frame",
-                  "id": "PXKuO",
-                  "name": "Btn 导出诊断",
-                  "width": "fill_container",
-                  "cornerRadius": 8,
-                  "stroke": "$line",
-                  "strokeWidth": 1,
-                  "gap": 8,
-                  "padding": [
-                    7,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "Ssq2A",
-                      "name": "Icon",
-                      "width": 13,
-                      "height": 13,
-                      "icon": "download",
-                      "library": "lucide",
-                      "fill": "$tx2"
-                    },
-                    {
-                      "type": "text",
-                      "id": "W6nNr",
-                      "name": "Label",
-                      "fill": "$tx2",
-                      "content": "导出诊断日志",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                }
-              ]
             }
           ]
         },
@@ -400,40 +340,11 @@
                   "type": "frame",
                   "id": "rcDXp",
                   "name": "Account Chip",
-                  "fill": "#FFFFFF0D",
+                  "fill": "#00000000",
                   "cornerRadius": 999,
                   "gap": 8,
-                  "padding": [
-                    4,
-                    12,
-                    4,
-                    4
-                  ],
                   "alignItems": "center",
                   "children": [
-                    {
-                      "type": "frame",
-                      "id": "SY7wX",
-                      "name": "Tile",
-                      "width": 22,
-                      "height": 22,
-                      "fill": "#C2410C",
-                      "cornerRadius": 11,
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "hIA2Z",
-                          "name": "Initial",
-                          "fill": "#FFFFFF",
-                          "content": "b",
-                          "fontFamily": "Inter",
-                          "fontSize": 11,
-                          "fontWeight": "600"
-                        }
-                      ]
-                    },
                     {
                       "type": "text",
                       "id": "Ayx9u",
@@ -453,16 +364,6 @@
                   "gap": 6,
                   "alignItems": "center",
                   "children": [
-                    {
-                      "type": "icon",
-                      "id": "WqOAv",
-                      "name": "Icon",
-                      "width": 13,
-                      "height": 13,
-                      "icon": "badge",
-                      "library": "lucide",
-                      "fill": "$tx3"
-                    },
                     {
                       "type": "text",
                       "id": "o25p5",
@@ -652,7 +553,7 @@
                       "id": "L9Lmg",
                       "name": "Refreshed",
                       "fill": "$tx3",
-                      "content": "额度刚刚校对 · 缓存 5 分钟",
+                      "content": "刚刚同步",
                       "fontFamily": "Inter",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -2414,104 +2315,44 @@
             },
             {
               "type": "frame",
+              "id": "Nypsh",
+              "name": "Nav 设置",
+              "width": "fill_container",
+              "gap": 10,
+              "padding": [
+                8,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "X7BnAq",
+                  "name": "Icon",
+                  "width": 15,
+                  "height": 15,
+                  "icon": "settings-2",
+                  "library": "lucide",
+                  "fill": "$tx2"
+                },
+                {
+                  "type": "text",
+                  "id": "okDgk",
+                  "name": "Label",
+                  "fill": "$tx2",
+                  "content": "设置",
+                  "fontFamily": "Inter",
+                  "fontSize": 13.5,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
               "id": "O1Nv7p",
               "name": "Spacer",
               "width": "fill_container",
               "height": "fill_container"
-            },
-            {
-              "type": "frame",
-              "id": "QSQJx",
-              "name": "Sidebar Footer",
-              "width": "fill_container",
-              "stroke": "$line",
-              "strokeWidth": {
-                "top": 1
-              },
-              "layout": "vertical",
-              "gap": 10,
-              "padding": [
-                12,
-                8,
-                4,
-                8
-              ],
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "adb5g",
-                  "name": "Mode",
-                  "gap": 8,
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "ellipse",
-                      "id": "PTMMJ",
-                      "name": "Dot",
-                      "fill": "$ok",
-                      "width": 6,
-                      "height": 6
-                    },
-                    {
-                      "type": "text",
-                      "id": "a1rKO",
-                      "name": "Label",
-                      "fill": "$tx2",
-                      "content": "本地后端模式",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "text",
-                  "id": "pvd5q",
-                  "name": "Version",
-                  "fill": "$tx3",
-                  "content": "v0.1.0 · Tauri · pen 运行中",
-                  "fontFamily": "Inter",
-                  "fontSize": 11,
-                  "fontWeight": "normal"
-                },
-                {
-                  "type": "frame",
-                  "id": "BR72l",
-                  "name": "Btn 导出诊断",
-                  "width": "fill_container",
-                  "cornerRadius": 8,
-                  "stroke": "$line",
-                  "strokeWidth": 1,
-                  "gap": 8,
-                  "padding": [
-                    7,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "id": "j49ILJ",
-                      "name": "Icon",
-                      "width": 13,
-                      "height": 13,
-                      "icon": "download",
-                      "library": "lucide",
-                      "fill": "$tx2"
-                    },
-                    {
-                      "type": "text",
-                      "id": "fxtGp",
-                      "name": "Label",
-                      "fill": "$tx2",
-                      "content": "导出诊断日志",
-                      "fontFamily": "Inter",
-                      "fontSize": 12,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                }
-              ]
             }
           ]
         },
@@ -2698,40 +2539,11 @@
                   "type": "frame",
                   "id": "ncTcv",
                   "name": "Account Chip",
-                  "fill": "#FFFFFF0D",
+                  "fill": "#00000000",
                   "cornerRadius": 999,
                   "gap": 8,
-                  "padding": [
-                    4,
-                    12,
-                    4,
-                    4
-                  ],
                   "alignItems": "center",
                   "children": [
-                    {
-                      "type": "frame",
-                      "id": "Y3yrq",
-                      "name": "Tile",
-                      "width": 22,
-                      "height": 22,
-                      "fill": "#C2410C",
-                      "cornerRadius": 11,
-                      "justifyContent": "center",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "CYzYt",
-                          "name": "Initial",
-                          "fill": "#FFFFFF",
-                          "content": "b",
-                          "fontFamily": "Inter",
-                          "fontSize": 11,
-                          "fontWeight": "600"
-                        }
-                      ]
-                    },
                     {
                       "type": "text",
                       "id": "lpt9F",
@@ -2760,16 +2572,6 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon",
-                      "id": "l3rk8",
-                      "name": "Icon",
-                      "width": 13,
-                      "height": 13,
-                      "icon": "badge",
-                      "library": "lucide",
-                      "fill": "$tx3"
-                    },
-                    {
                       "type": "text",
                       "id": "O6uiK",
                       "name": "Model Id",
@@ -2793,30 +2595,10 @@
                   "id": "EK064",
                   "name": "Usage",
                   "fill": "$tx2",
-                  "content": "来源 桌面会话 · Agent 天数 4 / 5",
+                  "content": "来源 桌面会话",
                   "fontFamily": "Inter",
                   "fontSize": 12,
                   "fontWeight": "normal"
-                },
-                {
-                  "type": "frame",
-                  "id": "kXeSe",
-                  "name": "Track",
-                  "width": 80,
-                  "height": 4,
-                  "fill": "#FFFFFF14",
-                  "cornerRadius": 2,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "gtSFA",
-                      "name": "Bar",
-                      "width": 64,
-                      "height": 4,
-                      "fill": "$warn",
-                      "cornerRadius": 2
-                    }
-                  ]
                 },
                 {
                   "type": "frame",
@@ -2978,7 +2760,7 @@
                       "id": "d8Cmg",
                       "name": "Refreshed",
                       "fill": "$tx3",
-                      "content": "额度刚刚校对 · 缓存 5 分钟",
+                      "content": "刚刚同步",
                       "fontFamily": "Inter",
                       "fontSize": 12,
                       "fontWeight": "normal"
@@ -4696,7 +4478,7 @@
                           "fill": "$tx2",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "保存一个账号的登录会话，之后在列表里点 ▶ 就能直接切换，不用重复输入验证码。",
+                          "content": "登录新账号并自动捕获会话；完成后会切回原账号。",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 12.5,
@@ -4810,7 +4592,7 @@
                               "fill": "$tx2",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
-                              "content": "直接保存 pen.dev 现在登录的账号。当前是 bruce.w****@gmail.com，已在列表中。",
+                              "content": "直接保存 pen.dev 当前登录账号；若已在列表中则无需重复导入。",
                               "lineHeight": 1.5,
                               "fontFamily": "Inter",
                               "fontSize": 12.5,
@@ -5047,7 +4829,7 @@
                                       "fill": "$tx",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "在 pen.dev 设置 → 账号里退出，再用新邮箱登录",
+                                      "content": "退出当前账号，在 pen.dev 里用新邮箱登录（验证码或密码）",
                                       "lineHeight": 1.4,
                                       "fontFamily": "Inter",
                                       "fontSize": 12.5,
@@ -5382,7 +5164,7 @@
                               "id": "n4dtB8",
                               "name": "Placeholder",
                               "fill": "$tx3",
-                              "content": "例如：备用号 2",
+                              "content": "例如：备用账号",
                               "fontFamily": "Inter",
                               "fontSize": 13,
                               "fontWeight": "normal"
@@ -5433,7 +5215,7 @@
                           "id": "qV8QQ",
                           "name": "Text",
                           "fill": "$tx3",
-                          "content": "会话 token 加密保存在本机，不会上传",
+                          "content": "会话 token 仅保存在本机系统凭据管理器",
                           "fontFamily": "Inter",
                           "fontSize": 12,
                           "fontWeight": "normal"
@@ -5488,6 +5270,545 @@
                           "fontWeight": "500"
                         }
                       ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "browser",
+      "id": "rZ0D3",
+      "x": 3385,
+      "y": -13,
+      "name": "Accounts · Live implementation",
+      "width": 1568,
+      "height": 940,
+      "url": "127.0.0.1:1420"
+    },
+    {
+      "type": "frame",
+      "id": "RVjGj",
+      "x": 5033,
+      "y": 0,
+      "name": "Settings Screen",
+      "clip": true,
+      "width": 1568,
+      "height": 1000,
+      "fill": "$bg",
+      "layout": "none",
+      "children": [
+        {
+          "type": "frame",
+          "id": "RY2bP",
+          "x": 0,
+          "y": 0,
+          "name": "Sidebar",
+          "width": 220,
+          "height": 1000,
+          "fill": "$side",
+          "stroke": "$line",
+          "strokeWidth": {
+            "right": 1
+          },
+          "layout": "vertical",
+          "gap": 4,
+          "padding": [
+            18,
+            12
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "AkJJX",
+              "name": "Brand",
+              "width": "fill_container",
+              "gap": 8,
+              "padding": [
+                2,
+                8,
+                18,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "o47rs",
+                  "name": "Logo",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "pen-tool",
+                  "library": "lucide",
+                  "fill": "#FFFFFF"
+                },
+                {
+                  "type": "text",
+                  "id": "eSeec",
+                  "name": "Product name",
+                  "fill": "$tx",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "pen.dev",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "icon",
+                  "id": "nH0IC",
+                  "name": "Collapse",
+                  "width": 15,
+                  "height": 15,
+                  "icon": "panel-left",
+                  "library": "lucide",
+                  "fill": "$tx3"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "p6apxi",
+              "name": "Nav 账号",
+              "width": "fill_container",
+              "gap": 10,
+              "padding": [
+                8,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "muy21",
+                  "name": "Icon",
+                  "width": 15,
+                  "height": 15,
+                  "icon": "users",
+                  "library": "lucide",
+                  "fill": "$tx2"
+                },
+                {
+                  "type": "text",
+                  "id": "pMCOK",
+                  "name": "Label",
+                  "fill": "$tx2",
+                  "content": "账号",
+                  "fontFamily": "Inter",
+                  "fontSize": 13.5,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ECkg3",
+              "name": "Nav 设置",
+              "width": "fill_container",
+              "fill": "#FFFFFF0F",
+              "cornerRadius": 8,
+              "gap": 10,
+              "padding": [
+                8,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "djlnH",
+                  "name": "Icon",
+                  "width": 15,
+                  "height": 15,
+                  "icon": "settings-2",
+                  "library": "lucide",
+                  "fill": "$tx"
+                },
+                {
+                  "type": "text",
+                  "id": "IQiZp",
+                  "name": "Label",
+                  "fill": "$tx",
+                  "content": "设置",
+                  "fontFamily": "Inter",
+                  "fontSize": 13.5,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "BQ6Zc",
+              "name": "Sidebar Spacer",
+              "width": "fill_container",
+              "height": "fill_container"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "q9NhHq",
+          "x": 220,
+          "y": 0,
+          "name": "Main",
+          "width": 1348,
+          "height": 1000,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            28,
+            56,
+            32,
+            56
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "p1Vp9R",
+              "name": "Header",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                0,
+                0,
+                18,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "CRGgn",
+                  "name": "Title",
+                  "fill": "$tx",
+                  "content": "设置",
+                  "fontFamily": "Inter",
+                  "fontSize": 24,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "V5qjkX",
+                  "name": "Subtitle",
+                  "fill": "$tx2",
+                  "content": "管理应用语言、更新和诊断信息。",
+                  "fontFamily": "Inter",
+                  "fontSize": 13.5,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "LZBTV",
+              "name": "Language",
+              "width": "fill_container",
+              "stroke": "$line",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 32,
+              "padding": [
+                20,
+                0
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "W7F1eU",
+                  "name": "Language description",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "G2rjkO",
+                      "name": "Title",
+                      "fill": "$tx",
+                      "content": "语言",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "M5b4D8",
+                      "name": "Description",
+                      "fill": "$tx2",
+                      "content": "选择应用界面语言。",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JopRJ",
+                  "name": "Language selector",
+                  "width": 190,
+                  "fill": "$panel",
+                  "cornerRadius": 8,
+                  "stroke": "$line",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    9,
+                    12
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "DJO3U",
+                      "name": "Value",
+                      "fill": "$tx",
+                      "content": "简体中文",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "icon",
+                      "id": "j0bSSI",
+                      "name": "Chevron",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "chevrons-up-down",
+                      "library": "lucide",
+                      "fill": "$tx3"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "sSgsO",
+              "name": "Version",
+              "width": "fill_container",
+              "stroke": "$line",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 32,
+              "padding": [
+                20,
+                0
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "BjDI0",
+                  "name": "Version description",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "t0SZoU",
+                      "name": "Title",
+                      "fill": "$tx",
+                      "content": "应用版本",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "AKB5B",
+                      "name": "Description",
+                      "fill": "$tx2",
+                      "content": "当前版本",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "j947H",
+                  "name": "Version value",
+                  "fill": "$tx2",
+                  "content": "v0.1.1",
+                  "fontFamily": "Inter",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "t30kr",
+              "name": "Updates",
+              "width": "fill_container",
+              "stroke": "$line",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 32,
+              "padding": [
+                20,
+                0
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "J6SspZ",
+                  "name": "Updates description",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "KtMUj",
+                      "name": "Title",
+                      "fill": "$tx",
+                      "content": "更新",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "a5PSj",
+                      "name": "Description",
+                      "fill": "$tx2",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "检查 pen.dev 账号管理器是否有可用更新。",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "FM1Rz",
+                  "name": "Check updates",
+                  "cornerRadius": 8,
+                  "stroke": "$line",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    8,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "XirY2",
+                      "name": "Refresh",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "refresh-cw",
+                      "library": "lucide",
+                      "fill": "$tx2"
+                    },
+                    {
+                      "type": "text",
+                      "id": "gK3S8",
+                      "name": "Label",
+                      "fill": "$tx",
+                      "content": "检查更新",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "wYBfm",
+              "name": "Diagnostics",
+              "width": "fill_container",
+              "gap": 32,
+              "padding": [
+                20,
+                0
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Cc5yU",
+                  "name": "Diagnostics description",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "JzUYM",
+                      "name": "Title",
+                      "fill": "$tx",
+                      "content": "诊断",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "h2jGt",
+                      "name": "Description",
+                      "fill": "$tx2",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "导出本机诊断日志，用于排查问题；不会包含账号 token。",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "DOb4C",
+                  "name": "Export diagnostics",
+                  "cornerRadius": 8,
+                  "stroke": "$line",
+                  "strokeWidth": 1,
+                  "gap": 8,
+                  "padding": [
+                    8,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "YQxnP",
+                      "name": "Export icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "download",
+                      "library": "lucide",
+                      "fill": "$tx2"
+                    },
+                    {
+                      "type": "text",
+                      "id": "n3A2k1",
+                      "name": "Label",
+                      "fill": "$tx",
+                      "content": "导出诊断日志",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
                     }
                   ]
                 }

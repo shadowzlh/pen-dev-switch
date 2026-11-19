@@ -39,6 +39,10 @@ pub fn run() {
             ));
             let sessions = pen::paths::SessionPaths::from_home(&home);
             app.manage(state::AppState::new(store, sessions));
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

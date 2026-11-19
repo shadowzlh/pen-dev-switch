@@ -1,9 +1,7 @@
+use crate::auth::API_BASE;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
-
-/// 与桌面客户端一致的 API 基址。
-const API_BASE: &str = "https://api.pencil.dev";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

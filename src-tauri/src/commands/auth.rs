@@ -68,13 +68,12 @@ fn login_blocking(state: State<'_, AppState>, email: String, code: String) -> Ap
     // 验证码登录仅保存备用账号，不改写桌面会话，也不改变当前账号。
     store.data.current = original_current;
 
-    let workspace = crate::auth::personal_workspace(&token);
     vault::save_session(
         &id,
         &StoredSession {
             email: resolved_email.clone(),
-            token,
-            workspace,
+            token: token.clone(),
+            workspace: None,
         },
     )?;
 
@@ -83,9 +82,27 @@ fn login_blocking(state: State<'_, AppState>, email: String, code: String) -> Ap
         account.revoked = false;
     }
     store.save()?;
+    drop(store);
+
+    if let Some(workspace) = crate::auth::personal_workspace(&token) {
+        if let Err(err) = vault::save_session(
+            &id,
+            &StoredSession {
+                email: resolved_email.clone(),
+                token,
+                workspace: Some(workspace),
+            },
+        ) {
+            crate::logging::warn(&format!(
+                "login succeeded but workspace details were not saved: {err}"
+            ));
+        }
+    }
+
     state.forget_quota(&id);
     crate::logging::info(&format!("login account {resolved_email}"));
 
+    let mut store = state.store()?;
     let states = sync_session_state(&mut store, &state.sessions)?;
     build_views(&store, &states)
         .into_iter()
