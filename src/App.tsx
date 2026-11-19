@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import type { Update } from '@tauri-apps/plugin-updater';
 import { ArrowRight, Copy, Download, EllipsisVertical, Info, LockKeyhole, LogIn, Minus, PanelLeft, PenTool, Play, RefreshCw, ScanLine, Settings as SettingsIcon, Square, Terminal, Users, X } from 'lucide-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import {
   appStatus,
   cancelWatch,
   checkUpdates,
+  checkWindowsUpdate,
   currentAccount,
   exportDiagnostics,
   getQuota,
@@ -233,6 +235,9 @@ function App() {
   const [toast, setToast] = useState('');
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState<{ received: number; total: number | null } | null>(null);
   const [updateError, setUpdateError] = useState('');
   const [skippedVersion, setSkippedVersion] = useState<string | null>(() =>
     localStorage.getItem(UPDATE_SKIP_KEY),
@@ -321,6 +326,41 @@ function App() {
       setUpdateError('');
     }
     try {
+      if (isDesktop && navigator.userAgent.includes('Windows')) {
+        let windowsUpdate: Update | null;
+        try {
+          windowsUpdate = await checkWindowsUpdate();
+        } catch (err) {
+          const fallback = await checkUpdates();
+          if (pendingUpdate) await pendingUpdate.close().catch(() => undefined);
+          setPendingUpdate(null);
+          setUpdateInfo(fallback);
+          if (manual) setUpdateError(messageOf(err));
+          if (manual) setSkippedVersion(null);
+          localStorage.setItem(UPDATE_CHECKED_KEY, String(Date.now()));
+          return;
+        }
+        if (pendingUpdate) await pendingUpdate.close().catch(() => undefined);
+        setPendingUpdate(windowsUpdate);
+        if (windowsUpdate) {
+          setUpdateInfo({
+            currentVersion: windowsUpdate.currentVersion,
+            latestVersion: windowsUpdate.version,
+            updateAvailable: true,
+            releaseUrl: null,
+          });
+        } else {
+          setUpdateInfo({
+            currentVersion: status?.backendVersion ?? '0.1.2',
+            latestVersion: null,
+            updateAvailable: false,
+            releaseUrl: null,
+          });
+        }
+        if (manual) setSkippedVersion(null);
+        localStorage.setItem(UPDATE_CHECKED_KEY, String(Date.now()));
+        return;
+      }
       const info = await checkUpdates();
       setUpdateInfo(info);
       if (manual) setSkippedVersion(null);
@@ -331,7 +371,7 @@ function App() {
     } finally {
       if (manual) setCheckingUpdates(false);
     }
-  }, []);
+  }, [pendingUpdate, status?.backendVersion]);
 
   useEffect(() => {
     void refresh();
@@ -594,6 +634,33 @@ function App() {
       await openUrl(url);
     } catch (err) {
       setToast(messageOf(err));
+    }
+  }
+
+  async function installUpdate() {
+    if (!pendingUpdate || installingUpdate) return;
+    setInstallingUpdate(true);
+    setUpdateError('');
+    setUpdateProgress({ received: 0, total: null });
+    let received = 0;
+    try {
+      await pendingUpdate.downloadAndInstall((event) => {
+        if (event.event === 'Started') {
+          setUpdateProgress({ received, total: event.data.contentLength ?? null });
+        } else if (event.event === 'Progress') {
+          received += event.data.chunkLength;
+          setUpdateProgress((progress) => ({
+            received,
+            total: progress?.total ?? null,
+          }));
+        }
+      }, { restartAfterInstall: true });
+    } catch (err) {
+      setUpdateError(messageOf(err));
+      await pendingUpdate.close().catch(() => undefined);
+      setPendingUpdate(null);
+      setInstallingUpdate(false);
+      setUpdateProgress(null);
     }
   }
 
@@ -896,8 +963,23 @@ function App() {
                 {updateInfo?.updateAvailable && updateInfo.latestVersion && updateInfo.latestVersion !== skippedVersion && (
                   <div className="settings-update" role="status">
                     <span>{t('updateAvailable', { version: updateInfo.latestVersion })}</span>
-                    {updateInfo.releaseUrl && <button type="button" className="link" onClick={() => void openRelease()}>{t('releasePage')}</button>}
-                    <button type="button" className="link" onClick={skipUpdate}>{t('skip')}</button>
+                    {pendingUpdate ? (
+                      <button type="button" className="settings-action primary" onClick={() => void installUpdate()} disabled={installingUpdate}>
+                        <Download size={14} aria-hidden="true" />
+                        {installingUpdate ? t('updateDownloading') : t('installUpdate')}
+                      </button>
+                    ) : updateInfo.releaseUrl ? (
+                      <button type="button" className="link" onClick={() => void openRelease()}>{t('releasePage')}</button>
+                    ) : null}
+                    {!installingUpdate && <button type="button" className="link" onClick={skipUpdate}>{t('skip')}</button>}
+                  </div>
+                )}
+                {installingUpdate && updateProgress && (
+                  <div className="update-progress" role="status" aria-live="polite">
+                    <span>{updateProgress.total
+                      ? t('updateDownloadProgress', { percent: Math.min(100, Math.round(updateProgress.received / updateProgress.total * 100)) })
+                      : t('updateDownloadedBytes', { megabytes: (updateProgress.received / 1_048_576).toFixed(1) })}</span>
+                    {updateProgress.total && <progress max={updateProgress.total} value={updateProgress.received} />}
                   </div>
                 )}
                 {updateError && <small className="settings-feedback update-error" role="alert">{t('updateError', { error: updateError })}</small>}

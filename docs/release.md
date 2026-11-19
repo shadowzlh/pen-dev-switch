@@ -16,6 +16,14 @@ git push
 
 ## 触发发布
 
+### Windows 应用内更新
+
+Updater 使用独立签名验证更新包。首次启用前，将本机 `src-tauri/updater.key` 的完整内容保存到 GitHub 仓库 `Settings → Secrets and variables → Actions`，Secret 名称为 `TAURI_SIGNING_PRIVATE_KEY`。私钥已加入 `.gitignore`，不得提交到仓库；`src-tauri/tauri.conf.json` 中的公钥用于验证更新包。
+
+Windows 发布会额外生成签名的 NSIS 安装程序和 `latest.json`，应用确认后自动下载、验证并以带进度条的 passive 模式启动更新安装，无需手动卸载。普通 NSIS 安装程序仍保留作首次安装/手动恢复。
+
+当前 `v0.1.2` 尚未集成 updater。首次启用后，用户需手动安装一个包含 updater 的新版本；后续 Windows 版本才支持应用内更新。
+
 ### 方式一：手动指定版本（推荐）
 
 GitHub → Actions → `release` → Run workflow：

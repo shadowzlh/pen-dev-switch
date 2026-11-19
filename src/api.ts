@@ -1,4 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
+import { check as checkUpdater } from '@tauri-apps/plugin-updater';
+import type { Update } from '@tauri-apps/plugin-updater';
 import { localeFromStorage, translate } from './i18n';
 
 export type AccountSource = 'desktop' | 'cli';
@@ -35,6 +37,11 @@ export async function checkUpdates(): Promise<UpdateInfo> {
     throw new Error(translate(localeFromStorage(), 'browserUpdateUnsupported'));
   }
   return call<UpdateInfo>('check_updates');
+}
+
+export async function checkWindowsUpdate(): Promise<Update | null> {
+  if (!isDesktop || !navigator.userAgent.includes('Windows')) return null;
+  return checkUpdater();
 }
 
 export interface AppStatus {

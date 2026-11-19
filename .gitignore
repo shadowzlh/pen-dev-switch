@@ -37,3 +37,4 @@ Thumbs.db
 
 # 本机调研/调试产物（不进入版本库）
 pen-app-evidence.json
+src-tauri/updater.key*

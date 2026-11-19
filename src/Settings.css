@@ -177,6 +177,20 @@
   align-self: auto;
 }
 
+.update-progress {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.update-progress progress {
+  height: 5px;
+  margin: 0;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
